@@ -8,6 +8,7 @@ import passport from "passport";
 import cors from "cors";
 
 import authRoutes from "./routes/authRoute.js";
+import connectDB from "./config/db.js";
 
 const app = express();
 
@@ -17,6 +18,8 @@ app.use(
         credentials: true,
     })
 );
+
+connectDB();
 
 app.use(
     session({

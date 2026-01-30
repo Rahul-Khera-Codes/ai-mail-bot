@@ -17,7 +17,6 @@ export default function LoginPage() {
           overflow-hidden
         "
       >
-        {/* Very subtle inner container with light grey bg */}
         <div className="bg-gray-50/40 px-9 py-10">
           <div className="text-center mb-8">
             {/* Small brand mark */}
@@ -34,7 +33,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Compact, clean Google button */}
           <button
             onClick={loginWithGoogle}
             className="
