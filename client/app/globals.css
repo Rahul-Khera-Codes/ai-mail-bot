@@ -5,7 +5,16 @@
   --foreground: #171717;
 }
 
-
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+.chat-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  display: none;
 }
