@@ -7,6 +7,11 @@ import Chats from "./Chats";
 const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const serverUrl =
+    process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
 
   const emptyState = useMemo(() => messages.length === 0, [messages.length]);
 
@@ -15,10 +20,10 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
     setInput("");
   }, [resetKey]);
 
-  const handleSend = (event) => {
+  const handleSend = async (event) => {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
     const userMessage = {
       id: Math.random().toString(16).slice(2, 10),
@@ -26,19 +31,65 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
       content: trimmed,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const assistantId = Math.random().toString(16).slice(2, 10);
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        id: assistantId,
+        role: "assistant",
+        content: "Working on that...",
+        citations: [],
+        pending: true,
+      },
+    ]);
     setInput("");
+    setError("");
+    setIsLoading(true);
 
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(16).slice(2, 10),
-          role: "assistant",
-          content: "Thanks! I am working on that now.",
-        },
-      ]);
-    }, 500);
+    try {
+      const res = await fetch(`${serverUrl}/auth/gmail/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ question: trimmed }),
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.message || "Failed to get response");
+      }
+
+      const payload = await res.json();
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: payload.answer || "No answer available.",
+                citations: payload.citations || [],
+                pending: false,
+              }
+            : message
+        )
+      );
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content:
+                  "Sorry, I couldn't answer that right now. Please try again.",
+                pending: false,
+              }
+            : message
+        )
+      );
+      setError(err?.message || "Failed to send message");
+    } finally {
+      setIsLoading(false);
+    }
   };
   return (
     <main className="relative flex h-screen flex-col overflow-hidden">
@@ -66,6 +117,12 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
             )}
           </section>
 
+          {error ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
           <form
             className="rounded-full border border-slate-200 bg-white px-3 py-2"
             onSubmit={handleSend}
@@ -76,11 +133,13 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ask about your inbox or draft a reply..."
+                disabled={isLoading}
               />
               <button
                 type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-white hover:bg-indigo-600"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
                 aria-label="Send"
+                disabled={isLoading}
               >
                 <svg
                   viewBox="0 0 24 24"

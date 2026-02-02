@@ -2,6 +2,7 @@ import { Router } from "express";
 import passport from "passport";
 import { isAuthenticated } from "../middleware/auth.js";
 import {
+    chatWithEmails,
     getMessages,
     handleGmailCallback,
     syncMessages,
@@ -36,5 +37,6 @@ router.get(
 router.get("/messages", isAuthenticated, getMessages);
 
 router.post("/sync", isAuthenticated, syncMessages);
+router.post("/chat", isAuthenticated, chatWithEmails);
 
 export default router;

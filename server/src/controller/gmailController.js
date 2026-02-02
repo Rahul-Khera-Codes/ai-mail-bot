@@ -7,6 +7,12 @@ import {
 import { createEmbeddings } from "../utils/openaiClient.js";
 import { getPineconeIndex } from "../utils/pineconeClient.js";
 import { getGmailClientForUser, listGmailMessages } from "../utils/gmailService.js";
+import GmailConnection from "../models/gmailConnectionModel.js";
+import {
+    buildCitationsFromMatches,
+    generateRagAnswer,
+    retrieveRelevantEmails,
+} from "../utils/ragService.js";
 
 const buildListOptions = (query, defaults) => {
     const maxResults = Math.min(
@@ -90,6 +96,10 @@ export const getMessages = async (req, res) => {
 export const syncMessages = async (req, res) => {
     try {
         const gmail = await getGmailClientForUser(req.user?.id);
+        await GmailConnection.updateOne(
+            { admin_user_id: req.user?.id },
+            { sync_status: "syncing" }
+        );
         const { maxResults, fetchAll, maxTotal, labelIds, q, pageToken } =
             buildListOptions(req.query, { maxResults: 25, maxTotal: 200 });
 
@@ -123,6 +133,7 @@ export const syncMessages = async (req, res) => {
             const cleanedBody = cleanBody(fields.body);
             const threadId = fields.inReplyTo || fields.messageId;
             const flags = detectIntentFlags(cleanedBody);
+            const snippet = cleanedBody.slice(0, 1000);
             const embeddingText = buildEmbeddingText({
                 subject: fields.subject,
                 from: fields.from,
@@ -135,6 +146,7 @@ export const syncMessages = async (req, res) => {
                 threadId,
                 embeddingText,
                 flags,
+                snippet,
             };
         });
 
@@ -154,6 +166,9 @@ export const syncMessages = async (req, res) => {
                 threadId: email.threadId,
                 source: "gmail",
                 date: email.date,
+                subject: email.subject,
+                from: email.from,
+                snippet: email.snippet,
                 direction: "inbound",
                 hasAction: email.flags.hasAction,
                 hasDecision: email.flags.hasDecision,
@@ -167,14 +182,49 @@ export const syncMessages = async (req, res) => {
             await target.upsert(batch);
         }
 
+        await GmailConnection.updateOne(
+            { admin_user_id: req.user?.id },
+            { sync_status: "connected", last_synced_at: new Date() }
+        );
+
         return res.json({
             syncedCount: vectors.length,
             namespace,
         });
     } catch (error) {
+        await GmailConnection.updateOne(
+            { admin_user_id: req.user?.id },
+            { sync_status: "error" }
+        );
         const statusCode = error.statusCode || 500;
         return res.status(statusCode).json({
             message: "Failed to sync Gmail messages to Pinecone",
+            error: error.message,
+        });
+    }
+};
+
+export const chatWithEmails = async (req, res) => {
+    try {
+        const question = req.body?.question?.trim();
+        if (!question) {
+            return res.status(400).json({ message: "Question is required" });
+        }
+
+        const topK = req.body?.topK;
+        const matches = await retrieveRelevantEmails(question, { topK });
+        const answer = await generateRagAnswer(question, matches);
+        const citations = buildCitationsFromMatches(matches);
+
+        return res.json({
+            answer,
+            citations,
+            matchCount: matches.length,
+        });
+    } catch (error) {
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+            message: "Failed to generate answer",
             error: error.message,
         });
     }
