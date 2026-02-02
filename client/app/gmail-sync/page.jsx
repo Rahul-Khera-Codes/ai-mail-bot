@@ -1,38 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function GmailSyncPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("syncing");
-  const [error, setError] = useState("");
   const [syncedCount, setSyncedCount] = useState(0);
+  const router = useRouter();
 
   const serverUrl =
     process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
 
   useEffect(() => {
-    let timerId;
-    let redirectId;
+    if (status !== "syncing") return;
     let isMounted = true;
 
-    const tickProgress = () => {
-      setProgress((current) => {
-        if (status !== "syncing") return current;
-        const next = current + Math.random() * 7 + 2;
-        return clamp(next, 0, 92);
-      });
-    };
-
     const sync = async () => {
-      if (!serverUrl) {
-        setStatus("error");
-        setError("Missing NEXT_PUBLIC_SERVER_URL");
-        return;
-      }
-      timerId = setInterval(tickProgress, 700);
       try {
         const res = await fetch(`${serverUrl}/auth/gmail/sync?all=true`, {
           method: "POST",
@@ -41,23 +26,32 @@ export default function GmailSyncPage() {
 
         if (!res.ok) {
           const errorText = await res.text();
-          throw new Error(errorText || "Failed to sync emails");
+          let message = "Failed to sync emails";
+          if (errorText) {
+            try {
+              const data = JSON.parse(errorText);
+              message = data.message || data.error || message;
+            } catch (parseError) {
+              message = errorText;
+            }
+          }
+          throw new Error(message);
         }
 
         const data = await res.json();
         if (!isMounted) return;
-        setSyncedCount(data.syncedCount || 0);
+        const nextSyncedCount = data.syncedCount || 0;
+        setSyncedCount(nextSyncedCount);
         setProgress(100);
         setStatus("done");
-        redirectId = setTimeout(() => {
-          window.location.href = "/";
-        }, 1200);
+        toast.success(`Synced ${nextSyncedCount} emails`);
+        router.push("/");
       } catch (err) {
         if (!isMounted) return;
         setStatus("error");
-        setError(err.message || "Failed to sync emails");
-      } finally {
-        if (timerId) clearInterval(timerId);
+        const message = err.message || "Failed to sync emails";
+        toast.error(message);
+        router.push("/");
       }
     };
 
@@ -65,10 +59,8 @@ export default function GmailSyncPage() {
 
     return () => {
       isMounted = false;
-      if (timerId) clearInterval(timerId);
-      if (redirectId) clearTimeout(redirectId);
     };
-  }, [serverUrl, status]);
+  }, [serverUrl, status, router]);
 
   return (
     <div className="h-screen overflow-hidden bg-slate-50 px-6 py-0 text-slate-900">

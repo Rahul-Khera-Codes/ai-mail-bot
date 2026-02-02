@@ -15,16 +15,36 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
+    const getCookieValue = (name) => {
+      if (typeof document === "undefined") return "";
+      const match = document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(`${name}=`));
+      return match ? match.slice(name.length + 1) : "";
+    };
     const loadUser = async () => {
       try {
-        const res = await fetch(`${serverUrl}/auth/dashboard`, {
+        const sessionToken = getCookieValue("connect.sid");
+        const authBody = sessionToken ? { token: sessionToken } : null;
+        const res = await fetch(`${serverUrl}/auth/session-user`, {
+          method: "POST",
           credentials: "include",
+          headers: {
+            ...(authBody ? { "Content-Type": "application/json" } : {}),
+            ...(sessionToken ? { "X-Connect-Sid": sessionToken } : {}),
+          },
+          body: authBody ? JSON.stringify(authBody) : undefined,
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          window.location.href = "/login";
+          return;
+        }
         const data = await res.json();
         if (isMounted) setUser(data.user || null);
       } catch (error) {
         if (isMounted) setUser(null);
+        window.location.href = "/login";
       }
     };
     loadUser();
@@ -34,15 +54,7 @@ export default function Home() {
   }, [serverUrl]);
 
   const connectGmail = async () => {
-    try {
-      const res = await fetch(`${serverUrl}/auth/dashboard`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        window.location.href = "/login";
-        return;
-      }
-    } catch (error) {
+    if (!user) {
       window.location.href = "/login";
       return;
     }

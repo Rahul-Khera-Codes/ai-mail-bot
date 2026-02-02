@@ -5,6 +5,7 @@ import {
     googleCallback,
     dashboard,
     logout,
+    sessionUser,
 } from "../controller/authController.js";
 
 const router = Router();
@@ -20,5 +21,7 @@ router.get(
 router.get("/dashboard", dashboard);
 
 router.get("/logout", logout);
+
+router.post("/session-user", sessionUser);
 
 export default router;

@@ -2,6 +2,13 @@ import OpenAI from "openai";
 
 let openaiClient;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableError = (error) => {
+    const status = error?.status || error?.statusCode;
+    return status === 429 || (status >= 500 && status <= 599);
+};
+
 const getOpenAIClient = () => {
     if (!process.env.OPENAI_API_KEY) {
         throw new Error("Missing OPENAI_API_KEY");
@@ -21,11 +28,43 @@ export const createEmbeddings = async (inputs) => {
 
     const client = getOpenAIClient();
     const model = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
+    const dimensions = process.env.OPENAI_EMBEDDING_DIM
+        ? parseInt(process.env.OPENAI_EMBEDDING_DIM, 10)
+        : undefined;
+    const batchSize =
+        parseInt(process.env.OPENAI_EMBEDDING_BATCH_SIZE, 10) || 96;
+    const maxRetries =
+        parseInt(process.env.OPENAI_EMBEDDING_MAX_RETRIES, 10) || 3;
+    const baseDelayMs =
+        parseInt(process.env.OPENAI_EMBEDDING_RETRY_DELAY_MS, 10) || 500;
 
-    const response = await client.embeddings.create({
-        model,
-        input: inputs,
-    });
+    const embeddings = [];
+    for (let i = 0; i < inputs.length; i += batchSize) {
+        const batch = inputs.slice(i, i + batchSize);
+        let attempt = 0;
+        while (true) {
+            try {
+                const response = await client.embeddings.create({
+                    model,
+                    input: batch,
+                    ...(dimensions ? { dimensions } : {}),
+                });
+                embeddings.push(
+                    ...response.data.map((item) => item.embedding)
+                );
+                break;
+            } catch (error) {
+                if (!isRetryableError(error) || attempt >= maxRetries) {
+                    throw error;
+                }
+                const delayMs =
+                    baseDelayMs * Math.pow(2, attempt) +
+                    Math.floor(Math.random() * 100);
+                attempt += 1;
+                await sleep(delayMs);
+            }
+        }
+    }
 
-    return response.data.map((item) => item.embedding);
+    return embeddings;
 };
