@@ -60,17 +60,73 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
         throw new Error(payload.message || "Failed to get response");
       }
 
-      const payload = await res.json();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+          let data;
+          try {
+            data = JSON.parse(trimmedLine);
+          } catch {
+            continue;
+          }
+          if (data.type === "metadata") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, citations: data.citations ?? [] }
+                  : msg
+              )
+            );
+          } else if (data.type === "chunk" && typeof data.content === "string") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      content:
+                        msg.content === "Working on that..."
+                          ? data.content
+                          : msg.content + data.content,
+                    }
+                  : msg
+              )
+            );
+          } else if (data.type === "done") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      content:
+                        msg.content === "..."
+                          ? "No answer available."
+                          : msg.content,
+                      pending: false,
+                    }
+                  : msg
+              )
+            );
+          } else if (data.type === "error") {
+            throw new Error(data.message || "Stream error");
+          }
+        }
+      }
+
+      // Ensure pending is cleared if stream ended without "done"
       setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: payload.answer || "No answer available.",
-                citations: payload.citations || [],
-                pending: false,
-              }
-            : message
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, pending: false } : msg
         )
       );
     } catch (err) {

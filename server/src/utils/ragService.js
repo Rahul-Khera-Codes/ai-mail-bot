@@ -70,7 +70,7 @@ export const buildCitationsFromMatches = (matches = []) =>
         };
     });
 
-export const generateRagAnswer = async (question, matches = []) => {
+export async function* generateRagAnswer(question, matches = []) {
     const context = buildContextFromMatches(matches);
     const systemPrompt =
         "You are a helpful assistant that answers questions using the provided email context. " +
@@ -83,7 +83,7 @@ export const generateRagAnswer = async (question, matches = []) => {
         context || "No relevant email context found.",
     ].join("\n");
 
-    return createChatCompletion({
+    const stream = createChatCompletion({
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -91,4 +91,8 @@ export const generateRagAnswer = async (question, matches = []) => {
         temperature: 0.2,
         maxTokens: parseInt(process.env.OPENAI_CHAT_MAX_TOKENS, 10) || 500,
     });
-};
+
+    for await (const chunk of stream) {
+        yield chunk;
+    }
+}

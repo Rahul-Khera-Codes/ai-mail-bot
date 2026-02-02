@@ -205,27 +205,57 @@ export const syncMessages = async (req, res) => {
 };
 
 export const chatWithEmails = async (req, res) => {
-    try {
-        const question = req.body?.question?.trim();
-        if (!question) {
-            return res.status(400).json({ message: "Question is required" });
-        }
+    const question = req.body?.question?.trim();
+    if (!question) {
+        return res.status(400).json({ message: "Question is required" });
+    }
 
+    try {
         const topK = req.body?.topK;
         const matches = await retrieveRelevantEmails(question, { topK });
-        const answer = await generateRagAnswer(question, matches);
         const citations = buildCitationsFromMatches(matches);
 
-        return res.json({
-            answer,
-            citations,
-            matchCount: matches.length,
-        });
+        res.setHeader("Content-Type", "application/x-ndjson");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        if (typeof res.flushHeaders === "function") {
+            res.flushHeaders();
+        }
+
+        // First line: metadata (citations, matchCount)
+        res.write(
+            JSON.stringify({
+                type: "metadata",
+                citations,
+                matchCount: matches.length,
+            }) + "\n"
+        );
+
+        const stream = generateRagAnswer(question, matches);
+        for await (const chunk of stream) {
+            res.write(JSON.stringify({ type: "chunk", content: chunk }) + "\n");
+            if (typeof res.flush === "function") {
+                res.flush();
+            }
+        }
+
+        res.write(JSON.stringify({ type: "done" }) + "\n");
+        res.end();
     } catch (error) {
-        const statusCode = error.statusCode || 500;
-        return res.status(statusCode).json({
-            message: "Failed to generate answer",
-            error: error.message,
-        });
+        if (res.headersSent) {
+            res.write(
+                JSON.stringify({
+                    type: "error",
+                    message: error.message || "Failed to generate answer",
+                }) + "\n"
+            );
+            res.end();
+        } else {
+            const statusCode = error.statusCode || 500;
+            res.status(statusCode).json({
+                message: "Failed to generate answer",
+                error: error.message,
+            });
+        }
     }
 };

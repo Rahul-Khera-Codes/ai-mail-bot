@@ -5,9 +5,14 @@ import { useEffect, useRef } from "react";
 const Chats = ({ messages }) => {
   const endRef = useRef(null);
 
+  const lastContentLength =
+    messages.length > 0
+      ? messages[messages.length - 1]?.content?.length ?? 0
+      : 0;
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length]);
+  }, [messages.length, lastContentLength]);
 
   return (
     <div className="chat-scroll flex flex-1 flex-col gap-4 overflow-y-auto pr-2">

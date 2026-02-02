@@ -69,41 +69,31 @@ export const createEmbeddings = async (inputs) => {
     return embeddings;
 };
 
-export const createChatCompletion = async ({
+export async function* createChatCompletion({
     messages,
     temperature = 0.2,
     maxTokens = 500,
     model,
-} = {}) => {
+} = {}) {
     if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error("Missing chat messages");
     }
 
     const client = getOpenAIClient();
     const resolvedModel = model || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
-    const maxRetries = parseInt(process.env.OPENAI_CHAT_MAX_RETRIES, 10) || 3;
-    const baseDelayMs =
-        parseInt(process.env.OPENAI_CHAT_RETRY_DELAY_MS, 10) || 500;
 
-    let attempt = 0;
-    while (true) {
-        try {
-            const response = await client.chat.completions.create({
-                model: resolvedModel,
-                messages,
-                temperature,
-                max_tokens: maxTokens,
-            });
-            return response.choices?.[0]?.message?.content?.trim() || "";
-        } catch (error) {
-            if (!isRetryableError(error) || attempt >= maxRetries) {
-                throw error;
-            }
-            const delayMs =
-                baseDelayMs * Math.pow(2, attempt) +
-                Math.floor(Math.random() * 100);
-            attempt += 1;
-            await sleep(delayMs);
+    const stream = await client.chat.completions.create({
+        model: resolvedModel,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        stream: true,
+    });
+
+    for await (const chunk of stream) {
+        const content = chunk.choices?.[0]?.delta?.content;
+        if (typeof content === "string" && content.length > 0) {
+            yield content;
         }
     }
-};
+}
