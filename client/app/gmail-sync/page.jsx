@@ -63,11 +63,11 @@ export default function GmailSyncPage() {
   }, [serverUrl, status, router]);
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-50 px-6 py-0 text-slate-900">
+    <div className="h-screen overflow-hidden bg-black px-6 py-0 text-slate-100">
       <div className="mx-auto flex h-full w-full max-w-sm items-center">
-        <div className="w-full rounded-2xl border border-slate-100 bg-white px-5 py-6 shadow-lg">
+        <div className="w-full rounded-2xl border border-[#262626] bg-[#0a0a0a] px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
           <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] text-[#615fff]">
               <svg
                 viewBox="0 0 24 24"
                 className="h-5 w-5"
@@ -83,33 +83,35 @@ export default function GmailSyncPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Syncing Gmail</h1>
-              <p className="text-xs text-slate-500">
+              <h1 className="text-lg font-semibold text-slate-100">
+                Syncing Gmail
+              </h1>
+              <p className="text-xs text-[#b3b3b3]">
                 Your emails are being imported securely.
               </p>
             </div>
           </div>
 
           <div className="mt-5">
-            <div className="h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-neutral-900">
               <div
                 className={`h-2 rounded-full transition-all ${
-                  status === "error" ? "bg-rose-500" : "bg-indigo-500"
+                  status === "error" ? "bg-rose-500" : "bg-[#615fff]"
                 }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="mt-2 flex items-center justify-between text-[11px] text-[#b3b3b3]">
               <span>{Math.round(progress)}%</span>
               {status === "done" ? (
-                <span className="text-emerald-600">
+                <span className="text-emerald-400">
                   Synced {syncedCount} emails
                 </span>
               ) : null}
             </div>
           </div>
 
-          <p className="mt-5 text-[11px] text-slate-400">
+          <p className="mt-5 text-[11px] text-[#b3b3b3]">
             You can keep this tab open while we finish syncing.
           </p>
         </div>

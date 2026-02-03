@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import jwt from "jsonwebtoken";
 import GmailConnection from "../models/gmailConnectionModel.js";
 import { encrypt } from "../utils/encrypt.js";
 
@@ -17,7 +18,20 @@ passport.use(
         },
         async (req, accessToken, refreshToken, profile, done) => {
             try {
-                const adminUserId = req.user?.id;
+                const stateToken = req.query?.state;
+                let adminUserId = null;
+                if (stateToken) {
+                    try {
+                        const payload = jwt.verify(
+                            stateToken,
+                            process.env.JWT_SECRET
+                        );
+                        adminUserId = payload?.sub || null;
+                    } catch (error) {
+                        return done(new Error("Invalid auth state"), null);
+                    }
+                }
+
                 const googleEmail = profile.emails?.[0]?.value;
 
                 if (!adminUserId) {

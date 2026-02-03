@@ -13,22 +13,30 @@ const router = Router();
 router.get(
     "/connect",
     isAuthenticated,
-    passport.authenticate("gmail-connect", {
-        accessType: "offline",
-        prompt: "consent",
-        includeGrantedScopes: true,
-        scope: [
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "profile",
-            "email",
-        ],
-    })
+    (req, res, next) => {
+        const authToken =
+            req.cookies?.auth_token ||
+            req.headers["x-auth-token"] ||
+            req.query?.token ||
+            "";
+        return passport.authenticate("gmail-connect", {
+            accessType: "offline",
+            prompt: "consent",
+            includeGrantedScopes: true,
+            scope: [
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "profile",
+                "email",
+            ],
+            state: authToken,
+        })(req, res, next);
+    }
 );
 
 router.get(
     "/callback",
     passport.authenticate("gmail-connect", {
-        failureRedirect: "/error",
+        failureRedirect: `${process.env.CLIENT_URL}/gmail-sync?status=error`,
     }),
     handleGmailCallback
 );
