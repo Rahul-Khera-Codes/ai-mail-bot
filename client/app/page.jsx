@@ -15,26 +15,11 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
-    const getCookieValue = (name) => {
-      if (typeof document === "undefined") return "";
-      const match = document.cookie
-        .split(";")
-        .map((item) => item.trim())
-        .find((item) => item.startsWith(`${name}=`));
-      return match ? match.slice(name.length + 1) : "";
-    };
     const loadUser = async () => {
       try {
-        const sessionToken = getCookieValue("connect.sid");
-        const authBody = sessionToken ? { token: sessionToken } : null;
         const res = await fetch(`${serverUrl}/auth/session-user`, {
           method: "POST",
           credentials: "include",
-          headers: {
-            ...(authBody ? { "Content-Type": "application/json" } : {}),
-            ...(sessionToken ? { "X-Connect-Sid": sessionToken } : {}),
-          },
-          body: authBody ? JSON.stringify(authBody) : undefined,
         });
         if (!res.ok) {
           window.location.href = "/login";
