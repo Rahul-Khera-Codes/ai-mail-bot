@@ -1,8 +1,52 @@
 "use client";
 
+import { useEffect } from "react";
+
 export default function LoginPage() {
+  const serverUrl =
+    process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
+
+  useEffect(() => {
+    let isMounted = true;
+    const getCookieValue = (name) => {
+      if (typeof document === "undefined") return "";
+      const match = document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(`${name}=`));
+      return match ? match.slice(name.length + 1) : "";
+    };
+
+    const checkAuth = async () => {
+      try {
+        const sessionToken = getCookieValue("connect.sid");
+        const authBody = sessionToken ? { token: sessionToken } : null;
+        const res = await fetch(`${serverUrl}/auth/session-user`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            ...(authBody ? { "Content-Type": "application/json" } : {}),
+            ...(sessionToken ? { "X-Connect-Sid": sessionToken } : {}),
+          },
+          body: authBody ? JSON.stringify(authBody) : undefined,
+        });
+        if (!isMounted) return;
+        if (res.ok) {
+          window.location.href = "/";
+        }
+      } catch (error) {
+        if (!isMounted) return;
+      }
+    };
+
+    checkAuth();
+    return () => {
+      isMounted = false;
+    };
+  }, [serverUrl]);
+
   const loginWithGoogle = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_SERVER_URL}/auth/google`;
+    window.location.href = `${serverUrl}/auth/google`;
   };
 
   return (
