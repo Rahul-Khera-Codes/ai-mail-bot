@@ -9,7 +9,8 @@ passport.use(
         {
             clientID: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            callbackURL: "/auth/gmail/callback",
+            callbackURL:
+                process.env.GMAIL_CALLBACK_URL || "/auth/gmail/callback",
             accessType: "offline",
             prompt: "consent",
             passReqToCallback: true, 
