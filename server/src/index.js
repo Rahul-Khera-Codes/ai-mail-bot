@@ -1,20 +1,22 @@
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ path: new URL("../.env", import.meta.url) });
 import "./auth/google.js";
 import "./auth/gmail.js";
 
 import express from "express";
-import session from "express-session";
 import passport from "passport";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
 
 import authRoutes from "./routes/authRoute.js";
 import gmailRoute from "./routes/gmailRoute.js";
 
 const app = express();
+const isProd = process.env.NODE_ENV === "production";
 
 app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
 
 app.use(
     cors({
@@ -25,21 +27,11 @@ app.use(
 
 connectDB();
 
-app.use(
-    session({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            httpOnly: true,
-            secure: false,
-            sameSite: "lax",     
-        },
-    })
-);
+if (isProd) {
+    app.set("trust proxy", 1);
+}
 
 app.use(passport.initialize());
-app.use(passport.session());
 
 /* ---------- ROUTES ---------- */
 app.use("/auth", authRoutes);

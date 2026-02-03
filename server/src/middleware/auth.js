@@ -1,5 +1,17 @@
-const isAuthenticated = (req, res, next) => {
-    if (!req.user) {
+import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
+
+const getTokenFromRequest = (req) => {
+    const authHeader = req.headers.authorization || "";
+    if (authHeader.startsWith("Bearer ")) {
+        return authHeader.slice("Bearer ".length);
+    }
+    return req.cookies?.auth_token || req.headers["x-auth-token"] || null;
+};
+
+const isAuthenticated = async (req, res, next) => {
+    const token = getTokenFromRequest(req);
+    if (!token) {
         const acceptHeader = req.headers.accept || "";
         const wantsHtml = acceptHeader.includes("text/html");
 
@@ -9,6 +21,20 @@ const isAuthenticated = (req, res, next) => {
 
         return res.status(401).json({ message: "Login required" });
     }
+
+    let payload;
+    try {
+        payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+        return res.status(401).json({ message: "Login required" });
+    }
+
+    const user = await User.findById(payload?.sub);
+    if (!user) {
+        return res.status(401).json({ message: "Login required" });
+    }
+
+    req.user = user;
     next();
 };
 

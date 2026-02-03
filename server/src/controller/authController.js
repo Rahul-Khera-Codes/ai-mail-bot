@@ -1,29 +1,48 @@
 import passport from "passport";
-import signature from "cookie-signature";
+import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 
-const getConnectSidFromCookie = (cookieHeader = "") => {
-    const tokenPair = cookieHeader
-        .split(";")
-        .map((entry) => entry.trim())
-        .find((entry) => entry.startsWith("connect.sid="));
-
-    if (!tokenPair) return null;
-    return tokenPair.slice("connect.sid=".length);
+const getTokenFromRequest = (req) => {
+    const authHeader = req.headers.authorization || "";
+    if (authHeader.startsWith("Bearer ")) {
+        return authHeader.slice("Bearer ".length);
+    }
+    return (
+        req.cookies?.auth_token ||
+        req.headers["x-auth-token"] ||
+        req.body?.token ||
+        null
+    );
 };
 
-const getSessionIdFromToken = (token) => {
-    if (!token) return null;
-    const decoded = decodeURIComponent(token);
-    const raw = decoded.startsWith("s:") ? decoded.slice(2) : decoded;
-    return signature.unsign(raw, process.env.SESSION_SECRET) || null;
+const buildAuthCookieOptions = () => {
+    const isProd = process.env.NODE_ENV === "production";
+    return {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
 };
+
+const signAuthToken = (user) =>
+    jwt.sign(
+        { sub: user.id, role: user.role, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+    );
 
 export const googleAuth = passport.authenticate("google", {
     scope: ["profile", "email"],
+    session: false,
 });
 
 export const googleCallback = (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ message: "Login required" });
+    }
+    const token = signAuthToken(req.user);
+    res.cookie("auth_token", token, buildAuthCookieOptions());
     res.redirect(process.env.CLIENT_URL);
 };
 
@@ -39,42 +58,31 @@ export const dashboard = (req, res) => {
 };
 
 export const logout = (req, res) => {
-    req.logout(() => {
-        res.redirect(process.env.CLIENT_URL);
-    });
+    res.clearCookie("auth_token", buildAuthCookieOptions());
+    res.redirect(process.env.CLIENT_URL);
 };
 
 export const sessionUser = async (req, res) => {
-    const token =
-        req.body?.token ||
-        req.headers["x-connect-sid"] ||
-        req.query?.token ||
-        getConnectSidFromCookie(req.headers.cookie);
-
-    const sessionId = getSessionIdFromToken(token);
-    if (!sessionId) {
+    const token = getTokenFromRequest(req);
+    if (!token) {
         return res.status(401).json({ message: "Login required" });
     }
 
-    req.sessionStore.get(sessionId, async (err, session) => {
-        if (err || !session) {
+    let payload;
+    try {
+        payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+        return res.status(401).json({ message: "Login required" });
+    }
+
+    try {
+        const user = await User.findById(payload?.sub);
+        if (!user) {
             return res.status(401).json({ message: "Login required" });
         }
 
-        const userId = session?.passport?.user;
-        if (!userId) {
-            return res.status(401).json({ message: "Login required" });
-        }
-
-        try {
-            const user = await User.findById(userId);
-            if (!user) {
-                return res.status(401).json({ message: "Login required" });
-            }
-
-            return res.json({ user });
-        } catch (error) {
-            return res.status(500).json({ message: "Failed to load user" });
-        }
-    });
+        return res.json({ user });
+    } catch (error) {
+        return res.status(500).json({ message: "Failed to load user" });
+    }
 };
