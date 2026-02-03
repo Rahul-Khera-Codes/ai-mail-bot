@@ -19,32 +19,25 @@ const Sidebar = ({ onNewChat, user }) => {
     onNewChat?.();
   };
 
-  const topActions = [
-    {
-      id: "new",
-      label: "New chat",
-      onClick: handleNewChat,
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <path
-            d="M12 5v14M5 12h14"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ),
-    },
-  ];
+  const newChatIcon = (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path
+        d="M12 5v14M5 12h14"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 
   return (
     <aside
-      className={`flex h-screen flex-col border-r border-slate-200 bg-white px-2 py-4 transition-all duration-200 ease-in-out ${
+      className={`flex h-screen flex-col border-r border-neutral-900 bg-[#0a0a0a] px-2 py-4 transition-all duration-200 ease-in-out ${
         collapsed ? "w-14" : "w-60"
       }`}
     >
@@ -54,10 +47,10 @@ const Sidebar = ({ onNewChat, user }) => {
         }`}
       >
         {!collapsed ? (
-          <span className="text-sm font-semibold text-slate-700">Chats</span>
+          <span className="text-sm font-semibold text-slate-200">Chats</span>
         ) : null}
         <button
-          className="flex h-9 w-9 items-center justify-center text-slate-500 hover:text-slate-900"
+          className="flex h-9 w-9 items-center justify-center text-[#b3b3b3] hover:text-white"
           onClick={() => setCollapsed((prev) => !prev)}
           type="button"
           aria-label="Toggle sidebar"
@@ -88,22 +81,19 @@ const Sidebar = ({ onNewChat, user }) => {
           collapsed ? "items-center" : "items-stretch"
         }`}
       >
-        {topActions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            onClick={action.onClick}
-            aria-label={action.label}
-            className={
-              collapsed
-                ? "flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                : "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }
-          >
-            {action.icon}
-            {!collapsed ? <span>{action.label}</span> : null}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={handleNewChat}
+          aria-label="New Chat"
+          className={
+            collapsed
+              ? "flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-400"
+              : "flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400  "
+          }
+        >
+          {newChatIcon}
+          {!collapsed ? <span>New Chat</span> : null}
+        </button>
       </div>
 
       {!collapsed ? (
@@ -113,27 +103,27 @@ const Sidebar = ({ onNewChat, user }) => {
               key={chat.id}
               className={`min-w-0 rounded-lg border px-3 py-1.5 text-left text-sm transition ${
                 chat.id === activeChatId
-                  ? "border-indigo-200 bg-indigo-50 text-indigo-900"
-                  : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50"
+                  ? "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
+                  : "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
               }`}
               onClick={() => setActiveChatId(chat.id)}
               type="button"
             >
-              <div className="truncate font-semibold">{chat.title}</div>
+              <div className="truncate text-xs font-normal">{chat.title}</div>
             </button>
           ))}
         </div>
       ) : null}
 
       <div className="mt-auto pt-4">
-        <div className="border-t border-slate-200 pt-4">
+        <div className="border-t border-neutral-900 pt-4">
           {!user ? (
             <div className="flex items-center justify-center">
-              <div className="h-8 w-8 animate-pulse rounded-full bg-slate-200" />
+              <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-800" />
             </div>
           ) : collapsed ? (
             <div className="flex items-center justify-center">
-              <div className="h-8 w-8 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-8 w-8 overflow-hidden rounded-full bg-neutral-800">
                 {user?.photo || user?.avatarUrl ? (
                   <img
                     src={user?.photo || user?.avatarUrl}
@@ -141,7 +131,7 @@ const Sidebar = ({ onNewChat, user }) => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-600">
+                  <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-200">
                     {(
                       ((user?.name || user?.displayName || "User")
                         .split(" ")[0]?.[0] || "") +
@@ -154,7 +144,7 @@ const Sidebar = ({ onNewChat, user }) => {
             </div>
           ) : (
             <div className="grid grid-cols-[36px_1fr] items-center gap-3 px-1">
-              <div className="h-9 w-9 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-800">
                 {user?.photo || user?.avatarUrl ? (
                   <img
                     src={user?.photo || user?.avatarUrl}
@@ -162,7 +152,7 @@ const Sidebar = ({ onNewChat, user }) => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-600">
+                  <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-200">
                     {(
                       ((user?.name || user?.displayName || "User")
                         .split(" ")[0]?.[0] || "") +
@@ -173,10 +163,10 @@ const Sidebar = ({ onNewChat, user }) => {
                 )}
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-slate-900">
+                <div className="truncate text-sm font-semibold text-slate-100">
                   {user?.name || user?.displayName || "User"}
                 </div>
-                <div className="truncate text-xs text-slate-500">
+                <div className="truncate text-xs text-[#b3b3b3]">
                   {user?.email || ""}
                 </div>
               </div>

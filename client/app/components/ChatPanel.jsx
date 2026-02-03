@@ -148,24 +148,53 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
     }
   };
   return (
-    <main className="relative flex h-screen flex-col overflow-hidden">
+    <main className="relative flex h-screen flex-col overflow-hidden text-slate-100">
       <div className="absolute left-2 right-2 top-3 z-10">
         <Header isAdmin={isAdmin} onConnect={onConnect} />
       </div>
 
       <div className="flex h-full flex-col gap-3 px-8 pb-6 pt-0">
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden">
-          <section className="flex min-h-0 flex-1 flex-col rounded-2xl p-6">
+          <section className="flex min-h-0 flex-1 flex-col p-6">
             {emptyState ? (
               <div className="flex h-full items-center justify-center">
-                <div className="max-w-md text-center">
-                  <h2 className="text-2xl font-semibold text-slate-900">
+                <div className="w-full max-w-xl px-8 py-10 text-center">
+                  <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#111111] text-[#615fff]">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <path
+                        d="M8 9h8M8 13h5M7 4h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H9l-5 3V7a3 3 0 0 1 3-3z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-semibold text-slate-100">
                     Start a new conversation
                   </h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Ask about inbox summaries, draft replies, or follow-ups.
-                    Your assistant will keep the conversation organized here.
+                  <p className="mt-3 text-sm text-[#b3b3b3]">
+                    Ask about inbox summaries, draft replies, or follow-ups. Your
+                    assistant keeps everything organized in one place.
                   </p>
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-200">
+                    {[
+                      "Summarize my latest emails",
+                      "Draft a reply to a client",
+                      "Show follow-ups due today",
+                    ].map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-full border border-[#262626] bg-black px-3 py-1 text-[#b3b3b3]"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -174,30 +203,28 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
           </section>
 
           {error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+            <div className="rounded-lg border border-rose-900/60 bg-rose-950/50 px-4 py-2 text-xs text-rose-200">
               {error}
             </div>
           ) : null}
 
-          <form
-            className="rounded-full border border-slate-200 bg-white px-3 py-2"
-            onSubmit={handleSend}
-          >
-            <div className="flex items-center gap-3">
+          <form className="flex items-center gap-3" onSubmit={handleSend}>
+            <div className="flex-1">
               <input
-                className="flex-1 border-none px-4 py-2 text-sm text-slate-900 outline-none"
+                className="w-full rounded-lg border border-neutral-800 bg-black px-4 py-3 text-sm text-slate-100 placeholder:text-[#b3b3b3] outline-none focus:border-[#615fff]"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ask about your inbox or draft a reply..."
                 disabled={isLoading}
               />
-              <button
-                type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                aria-label="Send"
-                disabled={isLoading}
-              >
-                <svg
+            </div>
+            <button
+              type="submit"
+              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#615fff] text-white hover:bg-[#4f4dff] disabled:cursor-not-allowed disabled:bg-[#3f3dd9]"
+              aria-label="Send"
+              disabled={isLoading}
+            >
+              <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4"
                   fill="none"
@@ -210,8 +237,7 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </button>
-            </div>
+            </button>
           </form>
         </div>
       </div>

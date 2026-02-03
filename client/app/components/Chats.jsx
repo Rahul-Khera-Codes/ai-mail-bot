@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 
 const Chats = ({ messages }) => {
   const endRef = useRef(null);
@@ -15,7 +16,7 @@ const Chats = ({ messages }) => {
   }, [messages.length, lastContentLength]);
 
   return (
-    <div className="chat-scroll flex flex-1 flex-col gap-4 overflow-y-auto pr-2">
+    <div className="chat-scroll flex flex-1 flex-col gap-4 overflow-y-auto pr-2 pt-8">
       {messages.map((message) => (
         <div
           key={message.id}
@@ -28,10 +29,14 @@ const Chats = ({ messages }) => {
               className={`rounded-2xl px-3 py-2 text-xs leading-relaxed ${
                 message.role === "user"
                   ? "bg-indigo-500 text-white"
-                  : "bg-slate-100 text-slate-900"
+                  : "bg-[#0a0a0a] text-slate-100 border border-[#262626]"
               }`}
             >
-              {message.content}
+              {message.role === "user" ? (
+                message.content
+              ) : (
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              )}
             </div>
             {/* {message.role === "assistant" &&
             Array.isArray(message.citations) &&
