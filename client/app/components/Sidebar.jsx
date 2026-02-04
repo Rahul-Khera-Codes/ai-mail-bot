@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-const initialChats = [];
+const serverUrl =
+  process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
 
 const Sidebar = ({ onNewChat, user }) => {
-  const [chats, setChats] = useState(initialChats);
+  const router = useRouter();
+  const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
@@ -19,14 +22,49 @@ const Sidebar = ({ onNewChat, user }) => {
 
   const showAvatar = avatarUrl && !avatarError;
 
-  const handleNewChat = () => {
-    const newChat = {
-      id: Math.random().toString(16).slice(2, 10),
-      title: "New chat",
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        const res = await fetch(`${serverUrl}/conversations`, {
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        setChats(data);
+      } catch {
+        // ignore for now
+      }
     };
-    setChats((prev) => [newChat, ...prev]);
-    setActiveChatId(newChat.id);
-    onNewChat?.();
+
+    loadConversations();
+  }, []);
+
+  const handleNewChat = async () => {
+    try {
+      const res = await fetch(`${serverUrl}/conversations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: "New chat" }),
+      });
+      if (res.status === 401) {
+        router.push("/login");
+        return;
+      }
+      if (!res.ok) {
+        return;
+      }
+      const conversation = await res.json();
+      setChats((prev) => [conversation, ...prev]);
+      setActiveChatId(conversation.id);
+      router.push(`/chats/${conversation.id}`);
+      onNewChat?.();
+    } catch {
+      // ignore for now
+    }
   };
 
   const newChatIcon = (
