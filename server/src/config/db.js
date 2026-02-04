@@ -1,13 +1,22 @@
-import mongoose from "mongoose";
+import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const connectDB = async () => {
+dotenv.config({ path: new URL("../../.env", import.meta.url) });
+
+const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+});
+const prisma = new PrismaClient({ adapter });
+
+export const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ MongoDB connected");
+        await prisma.$connect();
+        console.log("✅ PostgreSQL connected");
     } catch (error) {
-        console.error("❌ MongoDB connection failed:", error.message);
+        console.error("❌ PostgreSQL connection failed:", error.message);
         process.exit(1);
     }
 };
 
-export default connectDB;
+export default prisma;

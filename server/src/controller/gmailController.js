@@ -7,7 +7,7 @@ import {
 import { createEmbeddings } from "../utils/openaiClient.js";
 import { getPineconeIndex } from "../utils/pineconeClient.js";
 import { getGmailClientForUser, listGmailMessages } from "../utils/gmailService.js";
-import GmailConnection from "../models/gmailConnectionModel.js";
+import prisma from "../config/db.js";
 import {
     buildCitationsFromMatches,
     generateRagAnswer,
@@ -96,10 +96,10 @@ export const getMessages = async (req, res) => {
 export const syncMessages = async (req, res) => {
     try {
         const gmail = await getGmailClientForUser(req.user?.id);
-        await GmailConnection.updateOne(
-            { admin_user_id: req.user?.id },
-            { sync_status: "syncing" }
-        );
+        await prisma.gmailConnection.updateMany({
+            where: { adminUserId: req.user?.id },
+            data: { syncStatus: "syncing" },
+        });
         const { maxResults, fetchAll, maxTotal, labelIds, q, pageToken } =
             buildListOptions(req.query, { maxResults: 25, maxTotal: 200 });
 
@@ -182,20 +182,20 @@ export const syncMessages = async (req, res) => {
             await target.upsert(batch);
         }
 
-        await GmailConnection.updateOne(
-            { admin_user_id: req.user?.id },
-            { sync_status: "connected", last_synced_at: new Date() }
-        );
+        await prisma.gmailConnection.updateMany({
+            where: { adminUserId: req.user?.id },
+            data: { syncStatus: "connected", lastSyncedAt: new Date() },
+        });
 
         return res.json({
             syncedCount: vectors.length,
             namespace,
         });
     } catch (error) {
-        await GmailConnection.updateOne(
-            { admin_user_id: req.user?.id },
-            { sync_status: "error" }
-        );
+        await prisma.gmailConnection.updateMany({
+            where: { adminUserId: req.user?.id },
+            data: { syncStatus: "error" },
+        });
         const statusCode = error.statusCode || 500;
         return res.status(statusCode).json({
             message: "Failed to sync Gmail messages to Pinecone",

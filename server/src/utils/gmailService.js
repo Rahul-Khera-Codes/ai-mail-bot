@@ -1,11 +1,12 @@
 import { google } from "googleapis";
-import GmailConnection from "../models/gmailConnectionModel.js";
+import prisma from "../config/db.js";
 import { decrypt } from "./encrypt.js";
 
 export const getGmailClientForUser = async (userId) => {
-    const connection = await GmailConnection.findOne({
-        admin_user_id: userId,
-    }).sort({ updatedAt: -1 });
+    const connection = await prisma.gmailConnection.findFirst({
+        where: { adminUserId: userId },
+        orderBy: { updatedAt: "desc" },
+    });
 
     if (!connection) {
         const error = new Error("No Gmail connection found");
@@ -13,7 +14,7 @@ export const getGmailClientForUser = async (userId) => {
         throw error;
     }
 
-    const refreshToken = decrypt(connection.refresh_token);
+    const refreshToken = decrypt(connection.refreshToken);
     const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,

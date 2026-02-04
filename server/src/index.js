@@ -7,7 +7,7 @@ import express from "express";
 import passport from "passport";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import connectDB from "./config/db.js";
+import { connectDB } from "./config/db.js";
 
 import authRoutes from "./routes/authRoute.js";
 import gmailRoute from "./routes/gmailRoute.js";
