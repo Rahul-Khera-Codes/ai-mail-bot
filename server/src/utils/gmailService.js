@@ -59,3 +59,22 @@ export const listGmailMessages = async (gmail, options) => {
         resultSizeEstimate: allMessages.length,
     };
 };
+
+const decodeBase64UrlToBuffer = (data) => {
+    if (!data) return Buffer.alloc(0);
+    const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
+    const padLength = normalized.length % 4;
+    const padded =
+        padLength === 0 ? normalized : normalized + "=".repeat(4 - padLength);
+    return Buffer.from(padded, "base64");
+};
+
+export const getAttachmentContent = async (gmail, messageId, attachmentId) => {
+    const res = await gmail.users.messages.attachments.get({
+        userId: "me",
+        messageId,
+        id: attachmentId,
+    });
+    const data = res.data?.data;
+    return decodeBase64UrlToBuffer(data);
+};

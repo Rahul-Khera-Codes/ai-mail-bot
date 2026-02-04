@@ -100,3 +100,38 @@ Message:
 ${body}
     `.trim();
 };
+
+/** MIME types we parse for RAG (documents only; excludes images/binary) */
+const RAG_ATTACHMENT_MIMES = new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    "application/msword", // .doc
+    "text/plain",
+    "text/csv",
+    "text/html",
+]);
+
+const collectAttachmentParts = (payload, acc = []) => {
+    if (!payload) return acc;
+    if (payload.filename && payload.body?.attachmentId) {
+        const mime = (payload.mimeType || "").toLowerCase();
+        if (RAG_ATTACHMENT_MIMES.has(mime)) {
+            acc.push({
+                filename: payload.filename,
+                mimeType: payload.mimeType,
+                attachmentId: payload.body.attachmentId,
+            });
+        }
+    }
+    if (payload.parts?.length) {
+        for (const part of payload.parts) {
+            collectAttachmentParts(part, acc);
+        }
+    }
+    return acc;
+};
+
+export const getRagRelevantAttachments = (gmailMessage) => {
+    const payload = gmailMessage?.payload;
+    return collectAttachmentParts(payload || {});
+};

@@ -3,16 +3,25 @@ import {
     cleanBody,
     detectIntentFlags,
     extractEmailFields,
+    getRagRelevantAttachments,
 } from "../utils/emailProcessing.js";
+import { parseAndChunkDocument } from "../utils/documentProcessor.js";
 import { createEmbeddings } from "../utils/openaiClient.js";
 import { getPineconeIndex } from "../utils/pineconeClient.js";
-import { getGmailClientForUser, listGmailMessages } from "../utils/gmailService.js";
+import {
+    getAttachmentContent,
+    getGmailClientForUser,
+    listGmailMessages,
+} from "../utils/gmailService.js";
 import prisma from "../config/db.js";
 import {
     buildCitationsFromMatches,
     generateRagAnswer,
     retrieveRelevantEmails,
 } from "../utils/ragService.js";
+
+/** Max attachment size to parse for RAG (bytes). */
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
 const buildListOptions = (query, defaults) => {
     const maxResults = Math.min(
@@ -158,9 +167,9 @@ export const syncMessages = async (req, res) => {
         const index = getPineconeIndex();
         const target = index.namespace(namespace);
 
-        const vectors = emails.map((email, index) => ({
+        const vectors = emails.map((email, idx) => ({
             id: email.messageId,
-            values: embeddings[index],
+            values: embeddings[idx],
             metadata: {
                 docType: "email",
                 threadId: email.threadId,
@@ -182,6 +191,75 @@ export const syncMessages = async (req, res) => {
             await target.upsert(batch);
         }
 
+        let attachmentChunksSynced = 0;
+
+        for (let d = 0; d < details.length; d++) {
+            const detail = details[d];
+            const emailMeta = emails[d];
+            const msgId = detail.data.id;
+            const subject = emailMeta?.subject ?? "";
+            const from = emailMeta?.from ?? "";
+            const date = emailMeta?.date ?? "";
+            const threadId = emailMeta?.threadId ?? msgId;
+
+            const attachments = getRagRelevantAttachments(detail.data);
+            for (const att of attachments) {
+                try {
+                    const buffer = await getAttachmentContent(
+                        gmail,
+                        msgId,
+                        att.attachmentId
+                    );
+                    if (buffer.length > MAX_ATTACHMENT_SIZE) continue;
+                    if (buffer.length === 0) continue;
+
+                    const chunks = await parseAndChunkDocument(
+                        buffer,
+                        att.mimeType,
+                        att.filename
+                    );
+                    if (!chunks.length) continue;
+
+                    const embeddingTexts = chunks.map(
+                        (c) =>
+                            `Attachment: ${att.filename}\nFrom email: ${subject}\nFrom: ${from}\n\nContent:\n${c.text}`
+                    );
+                    const chunkEmbeddings = await createEmbeddings(embeddingTexts);
+
+                    const attVectors = chunks.map((c, i) => ({
+                        id: `${msgId}_att_${att.attachmentId}_${c.index}`,
+                        values: chunkEmbeddings[i],
+                        metadata: {
+                            docType: "attachment",
+                            messageId: msgId,
+                            threadId,
+                            filename: att.filename,
+                            mimeType: att.mimeType,
+                            subject,
+                            from,
+                            date,
+                            snippet: c.text.slice(0, 500),
+                            chunkIndex: c.index,
+                        },
+                    }));
+
+                    for (let i = 0; i < attVectors.length; i += upsertBatchSize) {
+                        const batch = attVectors.slice(
+                            i,
+                            i + upsertBatchSize
+                        );
+                        await target.upsert(batch);
+                    }
+                    attachmentChunksSynced += attVectors.length;
+                } catch (err) {
+                    console.warn(
+                        `[sync] Skip attachment ${att.filename} (${msgId}):`,
+                        err.message
+                    );
+                }
+            }
+        }
+
         await prisma.gmailConnection.updateMany({
             where: { adminUserId: req.user?.id },
             data: { syncStatus: "connected", lastSyncedAt: new Date() },
@@ -189,6 +267,7 @@ export const syncMessages = async (req, res) => {
 
         return res.json({
             syncedCount: vectors.length,
+            attachmentChunksSynced,
             namespace,
         });
     } catch (error) {
