@@ -283,7 +283,7 @@ export const syncMessages = async (req, res) => {
     }
 };
 
-export const chatWithEmails = async (req, res) => {
+export const streamAiResponse = async (req, res) => {
     const question = req.body?.question?.trim();
     if (!question) {
         return res.status(400).json({ message: "Question is required" });

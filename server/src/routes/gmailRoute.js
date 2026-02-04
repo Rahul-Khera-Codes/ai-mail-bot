@@ -2,9 +2,9 @@ import { Router } from "express";
 import passport from "passport";
 import { isAuthenticated } from "../middleware/auth.js";
 import {
-    chatWithEmails,
     getMessages,
     handleGmailCallback,
+    streamAiResponse,
     syncMessages,
 } from "../controller/gmailController.js";
 
@@ -45,6 +45,6 @@ router.get(
 router.get("/messages", isAuthenticated, getMessages);
 
 router.post("/sync", isAuthenticated, syncMessages);
-router.post("/chat", isAuthenticated, chatWithEmails);
+router.post("/ai-response", isAuthenticated, streamAiResponse);
 
 export default router;
