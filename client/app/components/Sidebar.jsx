@@ -8,6 +8,16 @@ const Sidebar = ({ onNewChat, user }) => {
   const [chats, setChats] = useState(initialChats);
   const [activeChatId, setActiveChatId] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  const avatarUrl = user?.photo || user?.avatarUrl;
+  const displayName = user?.name || user?.displayName || "User";
+  const initials = (
+    (displayName.split(" ")[0]?.[0] || "") +
+    (displayName.split(" ")[1]?.[0] || "")
+  ).toUpperCase();
+
+  const showAvatar = avatarUrl && !avatarError;
 
   const handleNewChat = () => {
     const newChat = {
@@ -124,20 +134,17 @@ const Sidebar = ({ onNewChat, user }) => {
           ) : collapsed ? (
             <div className="flex items-center justify-center">
               <div className="h-8 w-8 overflow-hidden rounded-full bg-neutral-800">
-                {user?.photo || user?.avatarUrl ? (
+                {showAvatar ? (
                   <img
-                    src={user?.photo || user?.avatarUrl}
-                    alt={user?.name || user?.displayName || "User"}
+                    src={avatarUrl}
+                    alt={displayName}
                     className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-200">
-                    {(
-                      ((user?.name || user?.displayName || "User")
-                        .split(" ")[0]?.[0] || "") +
-                      ((user?.name || user?.displayName || "User")
-                        .split(" ")[1]?.[0] || "")
-                    ).toUpperCase()}
+                    {initials}
                   </div>
                 )}
               </div>
@@ -145,26 +152,23 @@ const Sidebar = ({ onNewChat, user }) => {
           ) : (
             <div className="grid grid-cols-[36px_1fr] items-center gap-3 px-1">
               <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-800">
-                {user?.photo || user?.avatarUrl ? (
+                {showAvatar ? (
                   <img
-                    src={user?.photo || user?.avatarUrl}
-                    alt={user?.name || user?.displayName || "User"}
+                    src={avatarUrl}
+                    alt={displayName}
                     className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-200">
-                    {(
-                      ((user?.name || user?.displayName || "User")
-                        .split(" ")[0]?.[0] || "") +
-                      ((user?.name || user?.displayName || "User")
-                        .split(" ")[1]?.[0] || "")
-                    ).toUpperCase()}
+                    {initials}
                   </div>
                 )}
               </div>
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-slate-100">
-                  {user?.name || user?.displayName || "User"}
+                  {displayName}
                 </div>
                 <div className="truncate text-xs text-[#b3b3b3]">
                   {user?.email || ""}

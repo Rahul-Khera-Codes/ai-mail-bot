@@ -1,3 +1,5 @@
+import { RAG_ATTACHMENT_MIMES } from "../config/contant.js";
+
 const decodeBase64Url = (data) => {
     if (!data) return "";
     const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
@@ -99,4 +101,30 @@ From: ${from}
 Message:
 ${body}
     `.trim();
+};
+
+
+const collectAttachmentParts = (payload, acc = []) => {
+    if (!payload) return acc;
+    if (payload.filename && payload.body?.attachmentId) {
+        const mime = (payload.mimeType || "").toLowerCase();
+        if (RAG_ATTACHMENT_MIMES.has(mime)) {
+            acc.push({
+                filename: payload.filename,
+                mimeType: payload.mimeType,
+                attachmentId: payload.body.attachmentId,
+            });
+        }
+    }
+    if (payload.parts?.length) {
+        for (const part of payload.parts) {
+            collectAttachmentParts(part, acc);
+        }
+    }
+    return acc;
+};
+
+export const getRagRelevantAttachments = (gmailMessage) => {
+    const payload = gmailMessage?.payload;
+    return collectAttachmentParts(payload || {});
 };

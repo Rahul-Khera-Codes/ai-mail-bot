@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  name      String
+  email     String   @unique
+  photo     String?
+  role      Role     @default(user)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gmailConnections GmailConnection[]
+
+  @@map("users")
+}
+
+enum Role {
+  admin
+  user
+}
+
+model GmailConnection {
+  id                 String      @id @default(cuid())
+  adminUserId        String      @map("admin_user_id")
+  googleAccountEmail String      @map("google_account_email")
+  refreshToken       String      @map("refresh_token")
+  scope              String
+  syncStatus         SyncStatus  @default(connected) @map("sync_status")
+  lastSyncedAt       DateTime?   @map("last_synced_at")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  adminUser User @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@unique([adminUserId, googleAccountEmail])
+  @@map("gmail_connections")
+}
+
+enum SyncStatus {
+  connected
+  syncing
+  error
+}

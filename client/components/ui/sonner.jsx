@@ -22,6 +22,12 @@ const Toaster = ({
         descriptionClassName: "sonner-description",
         actionButtonClassName: "sonner-action",
         cancelButtonClassName: "sonner-cancel",
+        style: {
+          background: "#111111",
+          color: "#f5f5f5",
+          border: "1px solid #2a2a2a",
+          borderRadius: "14px",
+        },
       }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,

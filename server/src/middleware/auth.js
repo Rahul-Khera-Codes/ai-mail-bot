@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/userModel.js";
+import prisma from "../config/db.js";
 
 const getTokenFromRequest = (req) => {
     const authHeader = req.headers.authorization || "";
@@ -29,7 +29,9 @@ const isAuthenticated = async (req, res, next) => {
         return res.status(401).json({ message: "Login required" });
     }
 
-    const user = await User.findById(payload?.sub);
+    const user = await prisma.user.findUnique({
+        where: { id: payload?.sub },
+    });
     if (!user) {
         return res.status(401).json({ message: "Login required" });
     }

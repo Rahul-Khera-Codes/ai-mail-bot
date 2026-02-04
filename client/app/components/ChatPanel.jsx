@@ -48,7 +48,7 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${serverUrl}/auth/gmail/chat`, {
+      const res = await fetch(`${serverUrl}/auth/gmail/ai-response`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

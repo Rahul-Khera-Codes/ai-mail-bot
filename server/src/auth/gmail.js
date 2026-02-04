@@ -1,7 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import jwt from "jsonwebtoken";
-import GmailConnection from "../models/gmailConnectionModel.js";
+import prisma from "../config/db.js";
 import { encrypt } from "../utils/encrypt.js";
 
 passport.use(
@@ -46,22 +46,32 @@ passport.use(
 
                 if (refreshToken) {
                     const encryptedToken = encrypt(refreshToken);
-                    connection = await GmailConnection.findOneAndUpdate(
-                        {
-                            admin_user_id: adminUserId,
-                            google_account_email: googleEmail,
+                    await prisma.gmailConnection.upsert({
+                        where: {
+                            adminUserId_googleAccountEmail: {
+                                adminUserId,
+                                googleAccountEmail: googleEmail,
+                            },
                         },
-                        {
-                            refresh_token: encryptedToken,
+                        create: {
+                            adminUserId,
+                            googleAccountEmail: googleEmail,
+                            refreshToken: encryptedToken,
                             scope: "gmail.readonly",
-                            sync_status: "connected",
+                            syncStatus: "connected",
                         },
-                        { upsert: true, new: true }
-                    );
+                        update: {
+                            refreshToken: encryptedToken,
+                            scope: "gmail.readonly",
+                            syncStatus: "connected",
+                        },
+                    });
                 } else {
-                    connection = await GmailConnection.findOne({
-                        admin_user_id: adminUserId,
-                        google_account_email: googleEmail,
+                    const connection = await prisma.gmailConnection.findFirst({
+                        where: {
+                            adminUserId,
+                            googleAccountEmail: googleEmail,
+                        },
                     });
 
                     if (!connection) {
