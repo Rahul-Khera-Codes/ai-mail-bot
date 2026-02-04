@@ -1,3 +1,5 @@
+import { RAG_ATTACHMENT_MIMES } from "../config/contant.js";
+
 const decodeBase64Url = (data) => {
     if (!data) return "";
     const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
@@ -101,15 +103,6 @@ ${body}
     `.trim();
 };
 
-/** MIME types we parse for RAG (documents only; excludes images/binary) */
-const RAG_ATTACHMENT_MIMES = new Set([
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-    "application/msword", // .doc
-    "text/plain",
-    "text/csv",
-    "text/html",
-]);
 
 const collectAttachmentParts = (payload, acc = []) => {
     if (!payload) return acc;

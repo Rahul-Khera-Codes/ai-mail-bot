@@ -1,14 +1,10 @@
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
-
-const DEFAULT_CHUNK_SIZE = 800;
-const DEFAULT_CHUNK_OVERLAP = 150;
-
-const TEXT_MIMES = new Set([
-    "text/plain",
-    "text/csv",
-    "text/html",
-]);
+import {
+    DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_CHUNK_SIZE,
+    TEXT_MIMES,
+} from "../config/contant.js";
 
 export async function parseDocument(buffer, mimeType, filename = "") {
     if (!buffer?.length) {
@@ -36,7 +32,6 @@ export async function parseDocument(buffer, mimeType, filename = "") {
         const result = await mammoth.extractRawText({ buffer });
         const text = (result?.value || "").trim();
         if (result?.messages?.length) {
-            // Log conversion warnings but don't fail
             console.warn("[documentProcessor] mammoth messages:", result.messages);
         }
         return { text };
