@@ -1,10 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "./Header";
 import Chats from "./Chats";
 
-const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
+const EMPTY_MESSAGES = [];
+
+const ChatPanel = ({
+  isAdmin,
+  onConnect,
+  resetKey,
+  conversationId,
+  initialMessages,
+  onMessagesLoaded,
+  loadingMessages = false,
+  onConversationCreated,
+}) => {
+  const router = useRouter();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
@@ -15,10 +28,32 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
 
   const emptyState = useMemo(() => messages.length === 0, [messages.length]);
 
+  // Use stable empty when initialMessages not provided to avoid infinite effect loop
+  const messagesToSync = useMemo(
+    () =>
+      initialMessages === undefined || initialMessages === null
+        ? EMPTY_MESSAGES
+        : Array.isArray(initialMessages)
+          ? initialMessages
+          : EMPTY_MESSAGES,
+    [initialMessages]
+  );
+
   useEffect(() => {
-    setMessages([]);
-    setInput("");
-  }, [resetKey]);
+    if (conversationId != null) {
+      setMessages(messagesToSync);
+    } else {
+      setMessages([]);
+      setInput("");
+    }
+  }, [conversationId, messagesToSync]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setMessages([]);
+      setInput("");
+    }
+  }, [resetKey, conversationId]);
 
   const handleSend = async (event) => {
     event.preventDefault();
@@ -48,11 +83,42 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${serverUrl}/auth/gmail/ai-response`, {
+      // If no conversationId, create a new conversation first
+      let currentConversationId = conversationId;
+      if (!currentConversationId) {
+        const createRes = await fetch(`${serverUrl}/conversations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ title: "New chat" }),
+        });
+
+        if (createRes.status === 401) {
+          router.push("/login");
+          return;
+        }
+
+        if (!createRes.ok) {
+          const payload = await createRes.json().catch(() => ({}));
+          throw new Error(payload.message || "Failed to create conversation");
+        }
+
+        const conversation = await createRes.json();
+        currentConversationId = conversation.id;
+        
+        // Notify parent component about the new conversation
+        if (typeof onConversationCreated === "function") {
+          onConversationCreated(conversation);
+        }
+      }
+
+      const url = `${serverUrl}/conversations/${currentConversationId}/chats`;
+      const body = { message: trimmed };
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -117,18 +183,25 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
                   : msg
               )
             );
+            if (currentConversationId && typeof onMessagesLoaded === "function") {
+              onMessagesLoaded();
+            }
           } else if (data.type === "error") {
             throw new Error(data.message || "Stream error");
           }
         }
       }
 
-      // Ensure pending is cleared if stream ended without "done"
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId ? { ...msg, pending: false } : msg
         )
       );
+
+      // If we created a new conversation, navigate to it after message is sent
+      if (!conversationId && currentConversationId) {
+        router.push(`/chats/${currentConversationId}`);
+      }
     } catch (err) {
       setMessages((prev) =>
         prev.map((message) =>
@@ -156,7 +229,11 @@ const ChatPanel = ({ isAdmin, onConnect, resetKey }) => {
       <div className="flex h-full flex-col gap-3 px-8 pb-6 pt-0">
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden">
           <section className="flex min-h-0 flex-1 flex-col p-6">
-            {emptyState ? (
+            {conversationId && loadingMessages ? (
+              <div className="flex flex-1 items-center justify-center text-slate-400 text-sm">
+                Loading conversation...
+              </div>
+            ) : emptyState ? (
               <div className="flex h-full items-center justify-center">
                 <div className="w-full max-w-xl px-8 py-10 text-center">
                   <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#111111] text-[#615fff]">

@@ -11,6 +11,7 @@ import { connectDB } from "./config/db.js";
 
 import authRoutes from "./routes/authRoute.js";
 import gmailRoute from "./routes/gmailRoute.js";
+import conversationRoutes from "./routes/conversationRoute.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -37,6 +38,8 @@ app.use(passport.initialize());
 app.use("/auth", authRoutes);
 
 app.use("/auth/gmail", gmailRoute);
+
+app.use("/conversations", conversationRoutes);
 
 app.listen(process.env.PORT, () =>
     console.log(`🚀 Server running on ${process.env.PORT}`)

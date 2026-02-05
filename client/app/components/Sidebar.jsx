@@ -1,17 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 const serverUrl =
   process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
 
-const Sidebar = ({ onNewChat, user }) => {
+const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    if (pathname?.startsWith("/chats/")) {
+      const id = pathname.replace(/^\/chats\/?/, "").split("/")[0] || null;
+      setActiveChatId(id || null);
+    } else {
+      setActiveChatId(null);
+    }
+  }, [pathname]);
 
   const avatarUrl = user?.photo || user?.avatarUrl;
   const displayName = user?.name || user?.displayName || "User";
@@ -22,49 +32,37 @@ const Sidebar = ({ onNewChat, user }) => {
 
   const showAvatar = avatarUrl && !avatarError;
 
-  useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const res = await fetch(`${serverUrl}/conversations`, {
-          credentials: "include",
-        });
-        if (res.status === 401) {
-          return;
-        }
-        if (!res.ok) return;
-        const data = await res.json();
-        setChats(data);
-      } catch {
-        // ignore for now
-      }
-    };
-
-    loadConversations();
-  }, []);
-
-  const handleNewChat = async () => {
+  const loadConversations = async () => {
     try {
       const res = await fetch(`${serverUrl}/conversations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title: "New chat" }),
       });
       if (res.status === 401) {
-        router.push("/login");
         return;
       }
-      if (!res.ok) {
-        return;
-      }
-      const conversation = await res.json();
-      setChats((prev) => [conversation, ...prev]);
-      setActiveChatId(conversation.id);
-      router.push(`/chats/${conversation.id}`);
-      onNewChat?.();
+      if (!res.ok) return;
+      const data = await res.json();
+      setChats(data);
     } catch {
       // ignore for now
     }
+  };
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  // Refresh conversations when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger) {
+      loadConversations();
+    }
+  }, [refreshTrigger]);
+
+  const handleNewChat = () => {
+    // Just navigate to home page - conversation will be created on first message
+    router.push("/");
+    onNewChat?.();
   };
 
   const newChatIcon = (
@@ -151,10 +149,10 @@ const Sidebar = ({ onNewChat, user }) => {
               key={chat.id}
               className={`min-w-0 rounded-lg border px-3 py-1.5 text-left text-sm transition ${
                 chat.id === activeChatId
-                  ? "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
+                  ? "border-transparent bg-[#1a1a1a] text-slate-100"
                   : "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
               }`}
-              onClick={() => setActiveChatId(chat.id)}
+              onClick={() => router.push(`/chats/${chat.id}`)}
               type="button"
             >
               <div className="truncate text-xs font-normal">{chat.title}</div>

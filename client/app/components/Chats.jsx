@@ -20,15 +20,15 @@ const Chats = ({ messages }) => {
       {messages.map((message) => (
         <div
           key={message.id}
-          className={`flex ${
+          className={`flex min-w-0 ${
             message.role === "user" ? "justify-end" : "justify-start"
           }`}
         >
-          <div className="max-w-[70%]">
+          <div className="min-w-0 max-w-[70%] w-fit">
             <div
-              className={`rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+              className={`rounded-xl px-3 py-2 text-xs leading-relaxed overflow-hidden break-words whitespace-normal [overflow-wrap:anywhere] prose prose-invert prose-sm max-w-none [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:bg-[#1a1a1a] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:[-ms-overflow-style:none] [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden [&_pre_code]:whitespace-pre [&_code]:bg-[#1a1a1a] [&_code]:px-1 [&_code]:rounded [&_code]:break-all [&_a]:text-blue-400 [&_a]:underline [&_a]:break-all [&_table]:border-collapse [&_table]:table-auto [&_table]:w-full [&_th]:border [&_td]:border [&_th]:p-2 [&_td]:p-2 ${
                 message.role === "user"
-                  ? "bg-indigo-500 text-white"
+                  ? "bg-indigo-500 text-white border border-indigo-500"
                   : "bg-[#0a0a0a] text-slate-100 border border-[#262626]"
               }`}
             >

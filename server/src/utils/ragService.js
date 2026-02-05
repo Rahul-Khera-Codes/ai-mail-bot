@@ -94,12 +94,16 @@ export const buildCitationsFromMatches = (matches = []) =>
         };
     });
 
+const CHAT_MAX_TOKENS =
+    parseInt(process.env.OPENAI_CHAT_MAX_TOKENS, 10) || 500;
+
+const getBaseSystemPrompt = () =>
+    "You are a helpful assistant that answers questions using the provided context, which may include emails and documents (attachments such as PDFs, Word files, or text files). " +
+    "Use both email content and document excerpts to answer. If the context does not contain the answer, say you do not have enough information.";
+
 export async function* generateRagAnswer(question, matches = []) {
     const context = buildContextFromMatches(matches);
-    const systemPrompt =
-        "You are a helpful assistant that answers questions using the provided context, which may include emails and documents (attachments such as PDFs, Word files, or text files). " +
-        "Use both email content and document excerpts to answer. If the context does not contain the answer, say you do not have enough information.";
-
+    const systemPrompt = getBaseSystemPrompt();
     const userPrompt = [
         `Question: ${question}`,
         "",
@@ -113,9 +117,57 @@ export async function* generateRagAnswer(question, matches = []) {
             { role: "user", content: userPrompt },
         ],
         temperature: 0.2,
-        maxTokens: parseInt(process.env.OPENAI_CHAT_MAX_TOKENS, 10) || 500,
+        maxTokens: CHAT_MAX_TOKENS,
     });
 
+    for await (const chunk of stream) {
+        yield chunk;
+    }
+}
+
+function buildMessagesWithHistory(question, matches, { priorMessages = [], memory = {} } = {}) {
+    const context = buildContextFromMatches(matches);
+    let systemContent = getBaseSystemPrompt();
+    const memorySummary =
+        memory && typeof memory.summary === "string" && memory.summary.trim()
+            ? `\n\nConversation memory (use for context only): ${memory.summary.trim()}`
+            : "";
+    if (memorySummary) {
+        systemContent += memorySummary;
+    }
+
+    const messages = [{ role: "system", content: systemContent }];
+
+    for (const m of priorMessages) {
+        const role = m.role === "system" ? "assistant" : "user";
+        messages.push({ role, content: m.message || "" });
+    }
+
+    const userContent = [
+        `Question: ${question}`,
+        "",
+        "Context:",
+        context || "No relevant email or document context found.",
+    ].join("\n");
+    messages.push({ role: "user", content: userContent });
+
+    return messages;
+}
+
+export async function* generateRagAnswerWithHistory(
+    question,
+    matches = [],
+    { priorMessages = [], memory = {} } = {}
+) {
+    const messages = buildMessagesWithHistory(question, matches, {
+        priorMessages,
+        memory,
+    });
+    const stream = createChatCompletion({
+        messages,
+        temperature: 0.2,
+        maxTokens: CHAT_MAX_TOKENS,
+    });
     for await (const chunk of stream) {
         yield chunk;
     }

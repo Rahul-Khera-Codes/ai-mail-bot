@@ -7,6 +7,7 @@ import ChatPanel from "./components/ChatPanel";
 export default function Home() {
   const [chatSeed, setChatSeed] = useState(0);
   const [user, setUser] = useState(null);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   const serverUrl =
     process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
@@ -51,15 +52,25 @@ export default function Home() {
     setChatSeed((prev) => prev + 1);
   };
 
+  const handleConversationCreated = () => {
+    // Trigger sidebar refresh
+    setSidebarRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-black text-slate-100">
       <div className="grid min-h-screen grid-cols-[auto_1fr]">
-        <Sidebar onNewChat={handleNewChat} user={user} />
+        <Sidebar 
+          onNewChat={handleNewChat} 
+          user={user} 
+          refreshTrigger={sidebarRefreshTrigger}
+        />
 
         <ChatPanel
           isAdmin={isAdmin}
           onConnect={connectGmail}
           resetKey={chatSeed}
+          onConversationCreated={handleConversationCreated}
         />
       </div>
     </div>
