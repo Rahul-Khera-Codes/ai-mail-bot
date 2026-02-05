@@ -2,14 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useGetConversationsQuery } from "../redux/api/conversationApi";
+import {
+  useDeleteConversationMutation,
+  useGetConversationsQuery,
+} from "../redux/api/conversationApi";
 
 const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [menuChatId, setMenuChatId] = useState(null);
+  const [pendingDeleteChat, setPendingDeleteChat] = useState(null);
   const { data, error, refetch } = useGetConversationsQuery();
+  const [deleteConversation, { isLoading: isDeleting }] =
+    useDeleteConversationMutation();
   const chats = Array.isArray(data) && error?.status !== 401 ? data : [];
 
   const activeChatId = useMemo(() => {
@@ -40,6 +47,24 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
     // Just navigate to home page - conversation will be created on first message
     router.push("/");
     onNewChat?.();
+  };
+
+  const handleRowNavigate = (chatId) => {
+    setMenuChatId(null);
+    router.push(`/chats/${chatId}`);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteChat) return;
+    try {
+      await deleteConversation(pendingDeleteChat.id).unwrap();
+      if (activeChatId === pendingDeleteChat.id) {
+        router.push("/");
+      }
+    } finally {
+      setPendingDeleteChat(null);
+      setMenuChatId(null);
+    }
   };
 
   const newChatIcon = (
@@ -122,18 +147,72 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
       {!collapsed ? (
         <div className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
           {chats.map((chat) => (
-            <button
+            <div
               key={chat.id}
-              className={`min-w-0 rounded-lg border px-3 py-1.5 text-left text-sm transition ${
+              className={`group relative min-w-0 rounded-lg border px-3 py-1 text-left text-sm transition ${
                 chat.id === activeChatId
                   ? "border-transparent bg-[#1a1a1a] text-slate-100"
                   : "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
               }`}
-              onClick={() => router.push(`/chats/${chat.id}`)}
-              type="button"
+              role="button"
+              tabIndex={0}
+              onClick={() => handleRowNavigate(chat.id)}
+              onMouseLeave={() => {
+                if (menuChatId === chat.id) {
+                  setMenuChatId(null);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleRowNavigate(chat.id);
+                }
+              }}
             >
-              <div className="truncate text-xs font-normal">{chat.title}</div>
-            </button>
+              <div className="flex items-center justify-between gap-2">
+                <div className="truncate text-xs font-normal">{chat.title}</div>
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label="Chat actions"
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-[#9ca3af] opacity-0 transition hover:text-white focus:opacity-100 group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuChatId((prev) => (prev === chat.id ? null : chat.id));
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="5" cy="12" r="1.5" />
+                      <circle cx="12" cy="12" r="1.5" />
+                      <circle cx="19" cy="12" r="1.5" />
+                    </svg>
+                  </button>
+                  {menuChatId === chat.id ? (
+                    <div
+                      className="absolute right-0 top-7 z-20 w-28 rounded-md border border-[#262626] bg-[#0f0f0f] shadow-lg"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-xs text-rose-200 hover:bg-[#1a1a1a]"
+                        onClick={() => {
+                          setPendingDeleteChat(chat);
+                          setMenuChatId(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : null}
@@ -191,6 +270,35 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
           )}
         </div>
       </div>
+
+      {pendingDeleteChat ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[#262626] bg-[#0a0a0a] p-5 text-slate-100 shadow-xl">
+            <h3 className="text-sm font-semibold">Delete conversation?</h3>
+            <p className="mt-2 text-xs text-[#b3b3b3]">
+              This will permanently remove the conversation and all its chats.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-[#262626] px-3 py-2 text-xs text-slate-200 hover:bg-[#1a1a1a]"
+                onClick={() => setPendingDeleteChat(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 };
