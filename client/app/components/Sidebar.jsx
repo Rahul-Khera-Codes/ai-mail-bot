@@ -1,26 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-
-const serverUrl =
-  process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
+import { useGetConversationsQuery } from "../redux/api/conversationApi";
 
 const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [chats, setChats] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const { data, error, refetch } = useGetConversationsQuery();
+  const chats = Array.isArray(data) && error?.status !== 401 ? data : [];
 
-  useEffect(() => {
+  const activeChatId = useMemo(() => {
     if (pathname?.startsWith("/chats/")) {
       const id = pathname.replace(/^\/chats\/?/, "").split("/")[0] || null;
-      setActiveChatId(id || null);
-    } else {
-      setActiveChatId(null);
+      return id || null;
     }
+    return null;
   }, [pathname]);
 
   const avatarUrl = user?.photo || user?.avatarUrl;
@@ -32,32 +29,12 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
 
   const showAvatar = avatarUrl && !avatarError;
 
-  const loadConversations = async () => {
-    try {
-      const res = await fetch(`${serverUrl}/conversations`, {
-        credentials: "include",
-      });
-      if (res.status === 401) {
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      setChats(data);
-    } catch {
-      // ignore for now
-    }
-  };
-
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
   // Refresh conversations when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger) {
-      loadConversations();
+      refetch();
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, refetch]);
 
   const handleNewChat = () => {
     // Just navigate to home page - conversation will be created on first message

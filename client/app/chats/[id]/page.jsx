@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import ChatPanel from "../../components/ChatPanel";
+import {
+  useGetConversationChatsQuery,
+} from "../../redux/api/conversationApi";
+import { useGetSessionUserQuery } from "../../redux/api/authApi";
 
 const serverUrl =
   process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
@@ -21,83 +25,52 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const conversationId = params?.id;
-  const [user, setUser] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const { data: sessionData, error: sessionError } = useGetSessionUserQuery();
+  const user = sessionData?.user ?? null;
+  const {
+    data: chatsData,
+    error: chatsError,
+    isLoading: loadingMessages,
+  } = useGetConversationChatsQuery(conversationId, {
+    skip: !conversationId,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadUser = async () => {
-      try {
-        const res = await fetch(`${serverUrl}/auth/session-user`, {
-          method: "POST",
-          credentials: "include",
-        });
-        if (!res.ok && res.status === 401) {
-          router.push("/login");
-          return;
-        }
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          setUser(data.user ?? null);
-        }
-      } catch {
-        if (isMounted) router.push("/login");
-      }
-    };
-    loadUser();
-    return () => { isMounted = false; };
-  }, [router]);
+  const messages = useMemo(
+    () => (Array.isArray(chatsData) ? chatsData.map(mapChatToMessage) : []),
+    [chatsData]
+  );
 
-  const loadChats = useCallback(async () => {
-    if (!conversationId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `${serverUrl}/conversations/${conversationId}/chats`,
-        { credentials: "include" }
-      );
-      if (res.status === 401) {
-        router.push("/login");
-        return;
-      }
-      if (res.status === 403 || res.status === 404) {
-        setError("Conversation not found");
-        setMessages([]);
-        return;
-      }
-      if (!res.ok) {
-        setError("Failed to load messages");
-        setMessages([]);
-        return;
-      }
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data.map(mapChatToMessage) : []);
-    } catch {
-      setError("Failed to load messages");
-      setMessages([]);
-    } finally {
-      setLoading(false);
+  const errorMessage = useMemo(() => {
+    if (!chatsError) return null;
+    if (chatsError?.status === 403 || chatsError?.status === 404) {
+      return "Conversation not found";
     }
-  }, [conversationId, router]);
+    return "Failed to load messages";
+  }, [chatsError]);
 
   useEffect(() => {
-    loadChats();
-  }, [loadChats]);
+    if (sessionError?.status === 401) {
+      router.push("/login");
+    }
+  }, [router, sessionError]);
+
+  useEffect(() => {
+    if (chatsError?.status === 401) {
+      router.push("/login");
+    }
+  }, [router, chatsError]);
 
   if (!conversationId) {
     router.replace("/");
     return null;
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="min-h-screen bg-black text-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-300">{error}</p>
+          <p className="text-slate-300">{errorMessage}</p>
           <button
             type="button"
             onClick={() => router.push("/")}
@@ -133,8 +106,7 @@ export default function ChatPage() {
           onConnect={connectGmail}
           conversationId={conversationId}
           initialMessages={messages}
-          onMessagesLoaded={loadChats}
-          loadingMessages={loading}
+          loadingMessages={loadingMessages}
           onConversationCreated={handleConversationCreated}
         />
       </div>

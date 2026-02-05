@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "./Header";
 import Chats from "./Chats";
+import {
+  useCreateConversationMutation,
+  useSendConversationMessageMutation,
+} from "../redux/api/conversationApi";
 
 const EMPTY_MESSAGES = [];
 
@@ -22,9 +26,8 @@ const ChatPanel = ({
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const serverUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
+  const [createConversation] = useCreateConversationMutation();
+  const [sendConversationMessage] = useSendConversationMessageMutation();
 
   const emptyState = useMemo(() => messages.length === 0, [messages.length]);
 
@@ -86,24 +89,9 @@ const ChatPanel = ({
       // If no conversationId, create a new conversation first
       let currentConversationId = conversationId;
       if (!currentConversationId) {
-        const createRes = await fetch(`${serverUrl}/conversations`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ title: "New chat" }),
-        });
-
-        if (createRes.status === 401) {
-          router.push("/login");
-          return;
-        }
-
-        if (!createRes.ok) {
-          const payload = await createRes.json().catch(() => ({}));
-          throw new Error(payload.message || "Failed to create conversation");
-        }
-
-        const conversation = await createRes.json();
+        const conversation = await createConversation({
+          title: "New chat",
+        }).unwrap();
         currentConversationId = conversation.id;
         
         // Notify parent component about the new conversation
@@ -111,86 +99,50 @@ const ChatPanel = ({
           onConversationCreated(conversation);
         }
       }
-
-      const url = `${serverUrl}/conversations/${currentConversationId}/chats`;
-      const body = { message: trimmed };
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        throw new Error(payload.message || "Failed to get response");
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine) continue;
-          let data;
-          try {
-            data = JSON.parse(trimmedLine);
-          } catch {
-            continue;
-          }
-          if (data.type === "metadata") {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantId
-                  ? { ...msg, citations: data.citations ?? [] }
-                  : msg
-              )
-            );
-          } else if (data.type === "chunk" && typeof data.content === "string") {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantId
-                  ? {
-                      ...msg,
-                      content:
-                        msg.content === "Working on that..."
-                          ? data.content
-                          : msg.content + data.content,
-                    }
-                  : msg
-              )
-            );
-          } else if (data.type === "done") {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantId
-                  ? {
-                      ...msg,
-                      content:
-                        msg.content === "..."
-                          ? "No answer available."
-                          : msg.content,
-                      pending: false,
-                    }
-                  : msg
-              )
-            );
-            if (currentConversationId && typeof onMessagesLoaded === "function") {
-              onMessagesLoaded();
-            }
-          } else if (data.type === "error") {
-            throw new Error(data.message || "Stream error");
-          }
-        }
-      }
+      await sendConversationMessage({
+        conversationId: currentConversationId,
+        message: trimmed,
+        onMetadata: (data) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? { ...msg, citations: data.citations ?? [] }
+                : msg
+            )
+          );
+        },
+        onChunk: (content) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? {
+                    ...msg,
+                    content:
+                      msg.content === "Working on that..."
+                        ? content
+                        : msg.content + content,
+                  }
+                : msg
+            )
+          );
+        },
+        onDone: () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? {
+                    ...msg,
+                    content:
+                      msg.content === "..."
+                        ? "No answer available."
+                        : msg.content,
+                    pending: false,
+                  }
+                : msg
+            )
+          );
+        },
+      }).unwrap();
 
       setMessages((prev) =>
         prev.map((msg) =>
@@ -203,6 +155,10 @@ const ChatPanel = ({
         router.push(`/chats/${currentConversationId}`);
       }
     } catch (err) {
+      if (err?.status === 401) {
+        router.push("/login");
+        return;
+      }
       setMessages((prev) =>
         prev.map((message) =>
           message.id === assistantId
@@ -215,7 +171,12 @@ const ChatPanel = ({
             : message
         )
       );
-      setError(err?.message || "Failed to send message");
+      const message =
+        err?.data?.message ||
+        err?.data?.error ||
+        err?.message ||
+        "Failed to send message";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
