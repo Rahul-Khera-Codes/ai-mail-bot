@@ -145,7 +145,7 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
       </div>
 
       {!collapsed ? (
-        <div className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
+        <div className="sidebar-scroll mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
           {chats.map((chat) => (
             <div
               key={chat.id}
