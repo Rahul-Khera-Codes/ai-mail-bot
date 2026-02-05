@@ -20,6 +20,9 @@ model User {
   updatedAt DateTime @updatedAt
 
   gmailConnections GmailConnection[]
+  conversations    Conversation[]
+  chats           Chat[]
+  mem0Sessions    Mem0Session[]
 
   @@map("users")
 }
@@ -50,4 +53,53 @@ enum SyncStatus {
   connected
   syncing
   error
+}
+
+enum ChatRole {
+  user
+  system
+}
+
+model Conversation {
+  id        String   @id
+  userId    String   @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chats        Chat[]
+  mem0Session  Mem0Session?
+
+  @@map("conversations")
+}
+
+model Chat {
+  id              String   @id
+  conversationId  String   @map("conversation_id")
+  userId          String   @map("user_id")
+  role            ChatRole
+  message         String
+  sequence        Int
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sequence])
+  @@map("chats")
+}
+
+model Mem0Session {
+  id              String   @id
+  conversationId  String   @unique @map("conversation_id")
+  userId          String   @map("user_id")
+  memory          Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mem0_sessions")
 }

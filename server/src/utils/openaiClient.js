@@ -97,3 +97,24 @@ export async function* createChatCompletion({
         }
     }
 }
+
+export async function createChatCompletionOnce({
+    messages,
+    temperature = 0.2,
+    maxTokens = 300,
+    model,
+} = {}) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error("Missing chat messages");
+    }
+    const client = getOpenAIClient();
+    const resolvedModel = model || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+    const response = await client.chat.completions.create({
+        model: resolvedModel,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        stream: false,
+    });
+    return response.choices?.[0]?.message?.content ?? "";
+}

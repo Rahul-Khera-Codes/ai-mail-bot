@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useSyncGmailMutation } from "../redux/api/gmailApi";
 
 export default function GmailSyncPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("syncing");
   const [syncedCount, setSyncedCount] = useState(0);
   const router = useRouter();
-
-  const serverUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
+  const [syncGmail] = useSyncGmailMutation();
 
   useEffect(() => {
     if (status !== "syncing") return;
@@ -19,26 +18,7 @@ export default function GmailSyncPage() {
 
     const sync = async () => {
       try {
-        const res = await fetch(`${serverUrl}/auth/gmail/sync?all=true`, {
-          method: "POST",
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          let message = "Failed to sync emails";
-          if (errorText) {
-            try {
-              const data = JSON.parse(errorText);
-              message = data.message || data.error || message;
-            } catch (parseError) {
-              message = errorText;
-            }
-          }
-          throw new Error(message);
-        }
-
-        const data = await res.json();
+        const data = await syncGmail({ all: true }).unwrap();
         if (!isMounted) return;
         const nextSyncedCount = data.syncedCount || 0;
         setSyncedCount(nextSyncedCount);
@@ -49,7 +29,11 @@ export default function GmailSyncPage() {
       } catch (err) {
         if (!isMounted) return;
         setStatus("error");
-        const message = err.message || "Failed to sync emails";
+        const message =
+          err?.data?.message ||
+          err?.data?.error ||
+          err?.message ||
+          "Failed to sync emails";
         toast.error(message);
         router.push("/");
       }
@@ -60,7 +44,7 @@ export default function GmailSyncPage() {
     return () => {
       isMounted = false;
     };
-  }, [serverUrl, status, router]);
+  }, [status, router, syncGmail]);
 
   return (
     <div className="h-screen overflow-hidden bg-black px-6 py-0 text-slate-100">

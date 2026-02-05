@@ -1,17 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { Ellipsis, PanelRight, Plus } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  useDeleteConversationMutation,
+  useGetConversationsQuery,
+} from "../redux/api/conversationApi";
 
-const serverUrl =
-  process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
-
-const Sidebar = ({ onNewChat, user }) => {
+const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
   const router = useRouter();
-  const [chats, setChats] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [menuChatId, setMenuChatId] = useState(null);
+  const [pendingDeleteChat, setPendingDeleteChat] = useState(null);
+  const { data, error, refetch } = useGetConversationsQuery();
+  const [deleteConversation, { isLoading: isDeleting }] =
+    useDeleteConversationMutation();
+  const chats = Array.isArray(data) && error?.status !== 401 ? data : [];
+
+  const activeChatId = useMemo(() => {
+    if (pathname?.startsWith("/chats/")) {
+      const id = pathname.replace(/^\/chats\/?/, "").split("/")[0] || null;
+      return id || null;
+    }
+    return null;
+  }, [pathname]);
 
   const avatarUrl = user?.photo || user?.avatarUrl;
   const displayName = user?.name || user?.displayName || "User";
@@ -22,66 +37,38 @@ const Sidebar = ({ onNewChat, user }) => {
 
   const showAvatar = avatarUrl && !avatarError;
 
+  // Refresh conversations when refreshTrigger changes
   useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const res = await fetch(`${serverUrl}/conversations`, {
-          credentials: "include",
-        });
-        if (res.status === 401) {
-          return;
-        }
-        if (!res.ok) return;
-        const data = await res.json();
-        setChats(data);
-      } catch {
-        // ignore for now
-      }
-    };
+    if (refreshTrigger) {
+      refetch();
+    }
+  }, [refreshTrigger, refetch]);
 
-    loadConversations();
-  }, []);
+  const handleNewChat = () => {
+    // Just navigate to home page - conversation will be created on first message
+    router.push("/");
+    onNewChat?.();
+  };
 
-  const handleNewChat = async () => {
+  const handleRowNavigate = (chatId) => {
+    setMenuChatId(null);
+    router.push(`/chats/${chatId}`);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteChat) return;
     try {
-      const res = await fetch(`${serverUrl}/conversations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ title: "New chat" }),
-      });
-      if (res.status === 401) {
-        router.push("/login");
-        return;
+      await deleteConversation(pendingDeleteChat.id).unwrap();
+      if (activeChatId === pendingDeleteChat.id) {
+        router.push("/");
       }
-      if (!res.ok) {
-        return;
-      }
-      const conversation = await res.json();
-      setChats((prev) => [conversation, ...prev]);
-      setActiveChatId(conversation.id);
-      router.push(`/chats/${conversation.id}`);
-      onNewChat?.();
-    } catch {
-      // ignore for now
+    } finally {
+      setPendingDeleteChat(null);
+      setMenuChatId(null);
     }
   };
 
-  const newChatIcon = (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path
-        d="M12 5v14M5 12h14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  const newChatIcon = <Plus className="h-4 w-4" />;
 
   return (
     <aside
@@ -95,32 +82,15 @@ const Sidebar = ({ onNewChat, user }) => {
         }`}
       >
         {!collapsed ? (
-          <span className="text-sm font-semibold text-slate-200">Chats</span>
+          <span className="text-sm font-medium text-slate-100">Chats</span>
         ) : null}
         <button
-          className="flex h-9 w-9 items-center justify-center text-[#b3b3b3] hover:text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-[#b3b3b3] transition hover:bg-[#14141f] hover:text-white"
           onClick={() => setCollapsed((prev) => !prev)}
           type="button"
           aria-label="Toggle sidebar"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M9 6v12"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <PanelRight className="h-4 w-4" />
         </button>
       </div>
 
@@ -135,8 +105,8 @@ const Sidebar = ({ onNewChat, user }) => {
           aria-label="New Chat"
           className={
             collapsed
-              ? "flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-400"
-              : "flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400  "
+              ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[#a27bff] text-white shadow-[0_6px_16px_rgba(162,123,255,0.32)] hover:bg-[#8f63ff]"
+              : "flex w-full items-center justify-center gap-2 rounded-xl bg-[#a27bff] px-4 py-2 text-sm font-medium text-white shadow-[0_6px_16px_rgba(162,123,255,0.2)] hover:bg-[#8f63ff]"
           }
         >
           {newChatIcon}
@@ -145,20 +115,64 @@ const Sidebar = ({ onNewChat, user }) => {
       </div>
 
       {!collapsed ? (
-        <div className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
+        <div className="sidebar-scroll mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
           {chats.map((chat) => (
-            <button
+            <div
               key={chat.id}
-              className={`min-w-0 rounded-lg border px-3 py-1.5 text-left text-sm transition ${
+              className={`group relative min-w-0 rounded-lg border px-3 py-1 text-left text-sm transition ${
                 chat.id === activeChatId
-                  ? "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
+                  ? "border-transparent bg-[#1a1a1a] text-slate-100"
                   : "border-transparent text-slate-300 hover:border-[#262626] hover:bg-[#1a1a1a] hover:text-slate-100"
               }`}
-              onClick={() => setActiveChatId(chat.id)}
-              type="button"
+              role="button"
+              tabIndex={0}
+              onClick={() => handleRowNavigate(chat.id)}
+              onMouseLeave={() => {
+                if (menuChatId === chat.id) {
+                  setMenuChatId(null);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleRowNavigate(chat.id);
+                }
+              }}
             >
-              <div className="truncate text-xs font-normal">{chat.title}</div>
-            </button>
+              <div className="flex items-center justify-between gap-2">
+                <div className="truncate text-xs font-normal">{chat.title}</div>
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label="Chat actions"
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-[#9ca3af] opacity-0 transition hover:text-white focus:opacity-100 group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuChatId((prev) => (prev === chat.id ? null : chat.id));
+                    }}
+                  >
+                  <Ellipsis className="h-4 w-4" />
+                  </button>
+                  {menuChatId === chat.id ? (
+                    <div
+                      className="absolute right-0 top-7 z-20 w-28 rounded-md border border-[#262626] bg-[#0f0f0f] hover:bg-[#1a1a1a] shadow-lg"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-xs text-rose-200"
+                        onClick={() => {
+                          setPendingDeleteChat(chat);
+                          setMenuChatId(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : null}
@@ -216,6 +230,35 @@ const Sidebar = ({ onNewChat, user }) => {
           )}
         </div>
       </div>
+
+      {pendingDeleteChat ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm rounded-2xl border border-[#2a2a3a] bg-[#212121] p-5 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+            <h3 className="text-sm font-semibold">Delete conversation?</h3>
+            <p className="mt-2 text-xs text-[#b3b3b3]">
+              This will permanently remove the conversation and all its chats.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-[#262626] px-3 py-2 text-xs text-slate-200 hover:bg-[#1a1a1a]"
+                onClick={() => setPendingDeleteChat(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-[#e02e2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#911e1b] disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 };
