@@ -16,7 +16,7 @@ const Chats = ({ messages }) => {
   }, [messages.length, lastContentLength]);
 
   return (
-    <div className="chat-scroll flex flex-1 flex-col gap-4 overflow-y-auto pr-2 pt-8">
+    <div className="chat-scroll flex flex-1 flex-col gap-4 overflow-y-auto pr-2 pt-6">
       {messages.map((message) => (
         <div
           key={message.id}
@@ -26,10 +26,10 @@ const Chats = ({ messages }) => {
         >
           <div className="min-w-0 max-w-[70%] w-fit">
             <div
-              className={`rounded-xl px-3 py-2 text-xs leading-relaxed overflow-hidden break-words whitespace-normal [overflow-wrap:anywhere] prose prose-invert prose-sm max-w-none [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:bg-[#1a1a1a] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:[-ms-overflow-style:none] [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden [&_pre_code]:whitespace-pre [&_code]:bg-[#1a1a1a] [&_code]:px-1 [&_code]:rounded [&_code]:break-all [&_a]:text-blue-400 [&_a]:underline [&_a]:break-all [&_table]:border-collapse [&_table]:table-auto [&_table]:w-full [&_th]:border [&_td]:border [&_th]:p-2 [&_td]:p-2 ${
+              className={`rounded-xl px-3 py-2 text-xs leading-relaxed overflow-hidden break-words whitespace-normal [overflow-wrap:anywhere] prose prose-invert prose-sm max-w-none shadow-[0_10px_26px_rgba(0,0,0,0.35)] [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:bg-[#1a1a1a] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:[-ms-overflow-style:none] [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden [&_pre_code]:whitespace-pre [&_code]:bg-[#1a1a1a] [&_code]:px-1 [&_code]:rounded [&_code]:break-all [&_a]:text-[#a27bff] [&_a]:underline [&_a]:break-all [&_table]:border-collapse [&_table]:table-auto [&_table]:w-full [&_th]:border [&_td]:border [&_th]:p-2 [&_td]:p-2 ${
                 message.role === "user"
-                  ? "bg-indigo-500 text-white border border-indigo-500"
-                  : "bg-[#0a0a0a] text-slate-100 border border-[#262626]"
+                  ? "bg-[#a27bff] text-white border border-[#a27bff]"
+                  : "bg-[#0f0f16] text-slate-100 border border-[#2a2a3a]"
               }`}
             >
               {message.role === "user" ? (

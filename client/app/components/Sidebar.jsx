@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Ellipsis, PanelRight, Plus } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   useDeleteConversationMutation,
@@ -67,21 +68,7 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
     }
   };
 
-  const newChatIcon = (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path
-        d="M12 5v14M5 12h14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  const newChatIcon = <Plus className="h-4 w-4" />;
 
   return (
     <aside
@@ -95,32 +82,15 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
         }`}
       >
         {!collapsed ? (
-          <span className="text-sm font-semibold text-slate-200">Chats</span>
+          <span className="text-sm font-medium text-slate-100">Chats</span>
         ) : null}
         <button
-          className="flex h-9 w-9 items-center justify-center text-[#b3b3b3] hover:text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-[#b3b3b3] transition hover:bg-[#14141f] hover:text-white"
           onClick={() => setCollapsed((prev) => !prev)}
           type="button"
           aria-label="Toggle sidebar"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M9 6v12"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <PanelRight className="h-4 w-4" />
         </button>
       </div>
 
@@ -135,8 +105,8 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
           aria-label="New Chat"
           className={
             collapsed
-              ? "flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-400"
-              : "flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400  "
+              ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[#a27bff] text-white shadow-[0_6px_16px_rgba(162,123,255,0.32)] hover:bg-[#8f63ff]"
+              : "flex w-full items-center justify-center gap-2 rounded-xl bg-[#a27bff] px-4 py-2 text-sm font-medium text-white shadow-[0_6px_16px_rgba(162,123,255,0.2)] hover:bg-[#8f63ff]"
           }
         >
           {newChatIcon}
@@ -181,26 +151,16 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
                       setMenuChatId((prev) => (prev === chat.id ? null : chat.id));
                     }}
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="5" cy="12" r="1.5" />
-                      <circle cx="12" cy="12" r="1.5" />
-                      <circle cx="19" cy="12" r="1.5" />
-                    </svg>
+                  <Ellipsis className="h-4 w-4" />
                   </button>
                   {menuChatId === chat.id ? (
                     <div
-                      className="absolute right-0 top-7 z-20 w-28 rounded-md border border-[#262626] bg-[#0f0f0f] shadow-lg"
+                      className="absolute right-0 top-7 z-20 w-28 rounded-md border border-[#262626] bg-[#0f0f0f] hover:bg-[#1a1a1a] shadow-lg"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <button
                         type="button"
-                        className="w-full px-3 py-2 text-left text-xs text-rose-200 hover:bg-[#1a1a1a]"
+                        className="w-full px-3 py-2 text-left text-xs text-rose-200"
                         onClick={() => {
                           setPendingDeleteChat(chat);
                           setMenuChatId(null);
@@ -272,8 +232,8 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
       </div>
 
       {pendingDeleteChat ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-2xl border border-[#262626] bg-[#0a0a0a] p-5 text-slate-100 shadow-xl">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm rounded-2xl border border-[#2a2a3a] bg-[#212121] p-5 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
             <h3 className="text-sm font-semibold">Delete conversation?</h3>
             <p className="mt-2 text-xs text-[#b3b3b3]">
               This will permanently remove the conversation and all its chats.
@@ -289,7 +249,7 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-70"
+                className="rounded-lg bg-[#e02e2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#911e1b] disabled:cursor-not-allowed disabled:opacity-70"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
               >

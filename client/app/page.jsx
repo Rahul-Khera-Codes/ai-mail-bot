@@ -56,6 +56,7 @@ export default function Home() {
           onConnect={connectGmail}
           resetKey={chatSeed}
           onConversationCreated={handleConversationCreated}
+          user={user}
         />
       </div>
     </div>
