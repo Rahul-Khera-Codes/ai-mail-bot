@@ -35,10 +35,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 flex items-center justify-center px-5">
-      <div 
+    <div className="min-h-screen bg-black text-slate-100 flex items-center justify-center px-4 sm:px-5">
+      <div
         className="
-          w-full max-w-[380px]
+          w-full max-w-[340px] sm:max-w-[380px]
           bg-neutral-950 
           border border-neutral-900 
           rounded-xl 
@@ -46,18 +46,18 @@ export default function LoginPage() {
           overflow-hidden
         "
       >
-        <div className="bg-neutral-950 px-9 py-10">
-          <div className="text-center mb-8">
+        <div className="bg-neutral-950 px-6 py-8 sm:px-9 sm:py-10">
+          <div className="text-center mb-7 sm:mb-8">
             {/* Small brand mark */}
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 text-slate-100 font-semibold text-lg mb-5">
+            <div className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900 text-slate-100 font-semibold text-base sm:text-lg mb-4 sm:mb-5">
               AI
             </div>
 
-            <h1 className="text-xl font-medium text-slate-100 tracking-tight">
+            <h1 className="text-lg sm:text-xl font-medium text-slate-100 tracking-tight">
               Sign in to AI Mail Bot
             </h1>
 
-            <p className="mt-2 text-sm text-[#b3b3b3]">
+            <p className="mt-2 text-xs sm:text-sm text-[#b3b3b3]">
               Continue with your Google account
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function LoginPage() {
               text-slate-100
               text-sm font-medium
               rounded-lg
-              py-2.5 px-5
+              py-2.5 px-4 sm:px-5
               transition-colors duration-150
               focus:outline-none focus:ring-2 focus:ring-neutral-600 focus:ring-offset-1 focus:ring-offset-neutral-950
             "
@@ -104,7 +104,7 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          <p className="mt-6 text-center text-xs text-[#b3b3b3]">
+          <p className="mt-6 text-center text-[11px] sm:text-xs text-[#b3b3b3]">
             By continuing, you agree to our Terms and Privacy Policy
           </p>
         </div>

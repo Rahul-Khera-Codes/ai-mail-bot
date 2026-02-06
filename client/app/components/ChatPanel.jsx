@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { Send } from "lucide-react";
 import Header from "./Header";
 import Chats from "./Chats";
 import {
   useCreateConversationMutation,
   useSendConversationMessageMutation,
+  conversationApi,
 } from "../redux/api/conversationApi";
 
 const EMPTY_MESSAGES = [];
@@ -22,8 +24,10 @@ const ChatPanel = ({
   onMessagesLoaded,
   loadingMessages = false,
   onConversationCreated,
+  onOpenSidebar,
 }) => {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
@@ -128,6 +132,15 @@ const ChatPanel = ({
             )
           );
         },
+        onTitle: (title) => {
+          // Invalidate conversations cache to update sidebar with new title
+          dispatch(
+            conversationApi.util.invalidateTags([
+              { type: "Conversation", id: currentConversationId },
+              "Conversation",
+            ])
+          );
+        },
         onDone: () => {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -184,13 +197,17 @@ const ChatPanel = ({
   };
   return (
     <main className="relative flex h-screen flex-col overflow-hidden text-slate-100">
-      <div className="absolute left-2 right-2 top-3 z-10">
-        <Header isAdmin={isAdmin} onConnect={onConnect} />
+      <div className="absolute left-2 right-2 top-3 z-10 max-[1150px]:left-0 max-[1150px]:right-0 max-[1150px]:top-0 max-[1150px]:w-full max-[1150px]:bg-black max-[1150px]:px-[10px] max-[1150px]:py-3">
+        <Header
+          isAdmin={isAdmin}
+          onConnect={onConnect}
+          onOpenSidebar={onOpenSidebar}
+        />
       </div>
 
-      <div className="flex h-full flex-col gap-3 px-8 pb-6 pt-0">
+      <div className="flex h-full flex-col gap-3 px-4 lg:px-8 pb-2 lg:pb-6 pt-0">
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden">
-          <section className="flex min-h-0 flex-1 flex-col p-6">
+          <section className="flex min-h-0 flex-1 flex-col">
             {conversationId && loadingMessages ? (
               <div className="flex flex-1 items-center justify-center text-slate-400 text-sm">
                 Loading conversation...
@@ -205,7 +222,7 @@ const ChatPanel = ({
                   </div>
                   <div className="text-4xl font-medium bg-gradient-to-t from-[#a27bff] to-white text-transparent bg-clip-text">
                     {user?.name || user?.displayName
-                      ? `Hello, ${user?.name || user?.displayName}`
+                      ? `Hello, ${(user?.name || user?.displayName).split(" ")[0]}`
                       : ""}
                   </div>
                   <div className="mt-2 text-4xl font-medium text-slate-100">
@@ -239,12 +256,12 @@ const ChatPanel = ({
           ) : null}
 
           <form
-            className="flex items-center gap-3 rounded-2xl border border-[#222236] bg-[#12121a]/90 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur"
+            className="flex items-center gap-2 rounded-xl border border-[#222236] bg-[#12121a]/90 px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur sm:gap-2 sm:rounded-xl sm:px-2 sm:py-1 md:gap-2 md:rounded-xl md:px-2 md:py-1 lg:gap-3 lg:rounded-2xl lg:px-3 lg:py-2"
             onSubmit={handleSend}
           >
             <div className="flex-1">
               <input
-                className="w-full rounded-xl border border-transparent bg-transparent px-3 py-2.5 text-sm text-slate-100 placeholder:text-[#9aa0b4] outline-none focus:border-transparent focus:outline-none"
+                className="w-full rounded-lg border border-transparent bg-transparent px-2.5 py-2 text-[13px] text-slate-100 placeholder:text-[#9aa0b4] outline-none focus:border-transparent focus:outline-none sm:rounded-lg sm:px-2 sm:py-1.5 sm:text-[12px] md:rounded-lg md:px-2 md:py-1.5 md:text-[12px] lg:rounded-xl lg:px-3 lg:py-2.5 lg:text-sm"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ask about your inbox..."
@@ -253,7 +270,7 @@ const ChatPanel = ({
             </div>
             <button
               type="submit"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a27bff] text-white shadow-[0_12px_30px_rgba(162,123,255,0.45)] hover:bg-[#8f63ff] disabled:cursor-not-allowed disabled:bg-[#7a52e0]"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a27bff] text-white shadow-[0_12px_30px_rgba(162,123,255,0.45)] hover:bg-[#8f63ff] disabled:cursor-not-allowed disabled:bg-[#7a52e0] sm:h-8 sm:w-8 sm:rounded-lg md:h-9 md:w-9 md:rounded-xl lg:h-11 lg:w-11 lg:rounded-2xl"
               aria-label="Send"
               disabled={isLoading}
             >

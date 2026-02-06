@@ -8,13 +8,25 @@ import {
   useGetConversationsQuery,
 } from "../redux/api/conversationApi";
 
-const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
+const Sidebar = ({
+  onNewChat,
+  user,
+  refreshTrigger,
+  mobileOpen = false,
+  onClose,
+}) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 768px) and (max-width: 1023px)")
+      .matches;
+  });
   const [avatarError, setAvatarError] = useState(false);
   const [menuChatId, setMenuChatId] = useState(null);
   const [pendingDeleteChat, setPendingDeleteChat] = useState(null);
+  const [isMdViewport, setIsMdViewport] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const { data, error, refetch } = useGetConversationsQuery();
   const [deleteConversation, { isLoading: isDeleting }] =
     useDeleteConversationMutation();
@@ -44,6 +56,45 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
     }
   }, [refreshTrigger, refetch]);
 
+  useEffect(() => {
+    const mdQuery = window.matchMedia(
+      "(min-width: 768px) and (max-width: 1023px)"
+    );
+    const mobileQuery = window.matchMedia("(max-width: 639px)");
+
+    const handleMdChange = (event) => setIsMdViewport(event.matches);
+    const handleMobileChange = (event) => setIsMobileViewport(event.matches);
+
+    handleMdChange(mdQuery);
+    handleMobileChange(mobileQuery);
+
+    mdQuery.addEventListener("change", handleMdChange);
+    mobileQuery.addEventListener("change", handleMobileChange);
+
+    return () => {
+      mdQuery.removeEventListener("change", handleMdChange);
+      mobileQuery.removeEventListener("change", handleMobileChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isMdViewport) {
+      setCollapsed(true);
+    }
+  }, [isMdViewport]);
+
+  useEffect(() => {
+    if (!isMobileViewport && mobileOpen) {
+      onClose?.();
+    }
+  }, [isMobileViewport, mobileOpen, onClose]);
+
+  useEffect(() => {
+    if (isMobileViewport) {
+      setCollapsed(false);
+    }
+  }, [isMobileViewport]);
+
   const handleNewChat = () => {
     // Just navigate to home page - conversation will be created on first message
     router.push("/");
@@ -69,34 +120,51 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
   };
 
   const newChatIcon = <Plus className="h-4 w-4" />;
+  const isCompact = isMobileViewport ? false : collapsed;
+
+  const handleToggle = () => {
+    if (isMobileViewport) {
+      onClose?.();
+      return;
+    }
+    setCollapsed((prev) => !prev);
+  };
 
   return (
-    <aside
-      className={`flex h-screen flex-col border-r border-neutral-900 bg-[#0a0a0a] px-2 py-4 transition-all duration-200 ease-in-out ${
-        collapsed ? "w-14" : "w-60"
-      }`}
-    >
-      <div
-        className={`flex items-center ${
-          collapsed ? "justify-center" : "justify-between"
-        }`}
+    <>
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 z-30 bg-black/55 backdrop-blur-[1px] sm:hidden"
+          onClick={() => onClose?.()}
+          aria-hidden="true"
+        />
+      ) : null}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-60 flex-col border-r border-neutral-900 bg-[#0a0a0a] px-2 py-4 transition-all duration-200 ease-in-out sm:static sm:z-auto sm:translate-x-0 ${
+          isCompact ? "sm:w-14" : "sm:w-60"
+        } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {!collapsed ? (
-          <span className="text-sm font-medium text-slate-100">Chats</span>
-        ) : null}
-        <button
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-[#b3b3b3] transition hover:bg-[#14141f] hover:text-white"
-          onClick={() => setCollapsed((prev) => !prev)}
-          type="button"
-          aria-label="Toggle sidebar"
+        <div
+          className={`flex items-center ${
+            isCompact ? "justify-center" : "justify-between"
+          }`}
         >
-          <PanelRight className="h-4 w-4" />
-        </button>
-      </div>
+          {!isCompact ? (
+            <span className="text-sm font-medium text-slate-100">Chats</span>
+          ) : null}
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-[#b3b3b3] transition hover:bg-[#14141f] hover:text-white"
+            onClick={handleToggle}
+            type="button"
+            aria-label={isMobileViewport ? "Close sidebar" : "Toggle sidebar"}
+          >
+            <PanelRight className="h-4 w-4" />
+          </button>
+        </div>
 
       <div
         className={`mt-4 flex flex-col gap-1 ${
-          collapsed ? "items-center" : "items-stretch"
+          isCompact ? "items-center" : "items-stretch"
         }`}
       >
         <button
@@ -104,17 +172,17 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
           onClick={handleNewChat}
           aria-label="New Chat"
           className={
-            collapsed
+            isCompact
               ? "flex h-9 w-9 items-center justify-center rounded-xl bg-[#a27bff] text-white shadow-[0_6px_16px_rgba(162,123,255,0.32)] hover:bg-[#8f63ff]"
               : "flex w-full items-center justify-center gap-2 rounded-xl bg-[#a27bff] px-4 py-2 text-sm font-medium text-white shadow-[0_6px_16px_rgba(162,123,255,0.2)] hover:bg-[#8f63ff]"
           }
         >
           {newChatIcon}
-          {!collapsed ? <span>New Chat</span> : null}
+          {!isCompact ? <span>New Chat</span> : null}
         </button>
       </div>
 
-      {!collapsed ? (
+      {!isCompact ? (
         <div className="sidebar-scroll mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
           {chats.map((chat) => (
             <div
@@ -183,7 +251,7 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
             <div className="flex items-center justify-center">
               <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-800" />
             </div>
-          ) : collapsed ? (
+          ) : isCompact ? (
             <div className="flex items-center justify-center">
               <div className="h-8 w-8 overflow-hidden rounded-full bg-neutral-800">
                 {showAvatar ? (
@@ -231,35 +299,36 @@ const Sidebar = ({ onNewChat, user, refreshTrigger }) => {
         </div>
       </div>
 
-      {pendingDeleteChat ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-sm rounded-2xl border border-[#2a2a3a] bg-[#212121] p-5 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
-            <h3 className="text-sm font-semibold">Delete conversation?</h3>
-            <p className="mt-2 text-xs text-[#b3b3b3]">
-              This will permanently remove the conversation and all its chats.
-            </p>
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-[#262626] px-3 py-2 text-xs text-slate-200 hover:bg-[#1a1a1a]"
-                onClick={() => setPendingDeleteChat(null)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-[#e02e2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#911e1b] disabled:cursor-not-allowed disabled:opacity-70"
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
+    </aside>
+    {pendingDeleteChat ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-[2px]">
+        <div className="w-full max-w-sm rounded-2xl border border-[#2a2a3a] bg-[#212121] p-5 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+          <h3 className="text-sm font-semibold">Delete conversation?</h3>
+          <p className="mt-2 text-xs text-[#b3b3b3]">
+            This will permanently remove the conversation and all its chats.
+          </p>
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-[#262626] px-3 py-2 text-xs text-slate-200 hover:bg-[#1a1a1a]"
+              onClick={() => setPendingDeleteChat(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-[#e02e2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#911e1b] disabled:cursor-not-allowed disabled:opacity-70"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
-      ) : null}
-    </aside>
+      </div>
+    ) : null}
+    </>
   );
 };
 

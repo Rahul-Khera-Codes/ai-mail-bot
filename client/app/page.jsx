@@ -8,6 +8,7 @@ import { useGetSessionUserQuery } from "./redux/api/authApi";
 export default function Home() {
   const [chatSeed, setChatSeed] = useState(0);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const serverUrl =
     process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:7894";
@@ -44,11 +45,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-slate-100">
-      <div className="grid min-h-screen grid-cols-[auto_1fr]">
-        <Sidebar 
-          onNewChat={handleNewChat} 
-          user={user} 
+      <div className="grid min-h-screen grid-cols-1 sm:grid-cols-[auto_1fr]">
+        <Sidebar
+          onNewChat={handleNewChat}
+          user={user}
           refreshTrigger={sidebarRefreshTrigger}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
         />
 
         <ChatPanel
@@ -57,6 +60,7 @@ export default function Home() {
           resetKey={chatSeed}
           onConversationCreated={handleConversationCreated}
           user={user}
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
         />
       </div>
     </div>

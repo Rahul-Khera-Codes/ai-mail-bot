@@ -239,7 +239,7 @@ async function updateConversationMemory(conversationId, userId, newSummary) {
 
 async function generateConversationTitle(conversationId, userId, firstMessage) {
     try {
-        const titlePrompt = `Create a short, specific conversation title (2–5 words) based on the user’s first message below.
+        const titlePrompt = `Create a short, specific conversation title (2–5 words) based on the user's first message below.
                             Requirements:
                             - Capture the main topic or intent.
                             - Use natural, human-like phrasing.
@@ -265,9 +265,12 @@ async function generateConversationTitle(conversationId, userId, firstMessage) {
                 where: { id: conversationId, userId },
                 data: { title: trimmedTitle },
             });
+            return trimmedTitle;
         }
+        return null;
     } catch (error) {
         console.error("[generateConversationTitle]", error);
+        return null;
     }
 }
 
@@ -310,10 +313,14 @@ export const sendMessage = async (req, res) => {
         const chatCount = await prisma.chat.count({
             where: { conversationId, userId },
         });
+        
+        // Start title generation in parallel for first message
+        let titleGenerationPromise = null;
         if (chatCount === 1) {
-            generateConversationTitle(conversationId, userId, question).catch(
+            titleGenerationPromise = generateConversationTitle(conversationId, userId, question).catch(
                 (err) => {
                     console.warn("[sendMessage] Title generation failed:", err.message);
+                    return null;
                 }
             );
         }
@@ -353,6 +360,25 @@ export const sendMessage = async (req, res) => {
                 matchCount: matches.length,
             }) + "\n"
         );
+
+        // Handle title generation completion - send it through the stream when ready
+        if (titleGenerationPromise) {
+            titleGenerationPromise.then((generatedTitle) => {
+                if (generatedTitle && !res.destroyed && !res.closed) {
+                    try {
+                        res.write(JSON.stringify({ type: "title", title: generatedTitle }) + "\n");
+                        if (typeof res.flush === "function") {
+                            res.flush();
+                        }
+                    } catch (err) {
+                        // Stream may have closed, ignore
+                        console.warn("[sendMessage] Failed to send title update:", err.message);
+                    }
+                }
+            }).catch(() => {
+                // Already handled in generateConversationTitle
+            });
+        }
 
         let fullContent = "";
         const stream = generateRagAnswerWithHistory(question, matches, {
