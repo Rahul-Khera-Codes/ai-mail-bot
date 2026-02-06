@@ -26,6 +26,7 @@ export default function ChatPage() {
   const router = useRouter();
   const conversationId = params?.id;
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { data: sessionData, error: sessionError } = useGetSessionUserQuery();
   const user = sessionData?.user ?? null;
   const {
@@ -99,8 +100,13 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-black text-slate-100">
-      <div className="grid min-h-screen grid-cols-[auto_1fr]">
-        <Sidebar user={user} refreshTrigger={sidebarRefreshTrigger} />
+      <div className="grid min-h-screen grid-cols-1 sm:grid-cols-[auto_1fr]">
+        <Sidebar
+          user={user}
+          refreshTrigger={sidebarRefreshTrigger}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
         <ChatPanel
           isAdmin={isAdmin}
           onConnect={connectGmail}
@@ -108,6 +114,7 @@ export default function ChatPage() {
           initialMessages={messages}
           loadingMessages={loadingMessages}
           onConversationCreated={handleConversationCreated}
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
         />
       </div>
     </div>
