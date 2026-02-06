@@ -16,7 +16,7 @@ const Chats = ({ messages }) => {
   }, [messages.length, lastContentLength]);
 
   return (
-    <div className="chat-scroll flex flex-1 flex-col gap-3 overflow-y-auto pr-1 pt-4 sm:gap-4 sm:pr-2 sm:pt-6">
+    <div className="chat-scroll flex flex-1 flex-col gap-3 overflow-y-auto pr-1 pt-4 sm:gap-4 sm:pr-2 sm:pt-14">
       {messages.map((message) => (
         <div
           key={message.id}
