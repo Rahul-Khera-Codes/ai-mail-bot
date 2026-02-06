@@ -49,7 +49,7 @@ export const conversationApi = createApi({
       providesTags: (result, error, id) => [{ type: "Chat", id }],
     }),
     sendConversationMessage: builder.mutation({
-      async queryFn({ conversationId, message, onChunk, onMetadata, onDone }) {
+      async queryFn({ conversationId, message, onChunk, onMetadata, onDone, onTitle }) {
         try {
           const response = await fetch(
             `${baseUrl}/conversations/${conversationId}/chats`,
@@ -107,6 +107,8 @@ export const conversationApi = createApi({
                 typeof data.content === "string"
               ) {
                 onChunk?.(data.content);
+              } else if (data.type === "title" && typeof data.title === "string") {
+                onTitle?.(data.title);
               } else if (data.type === "done") {
                 onDone?.();
               } else if (data.type === "error") {

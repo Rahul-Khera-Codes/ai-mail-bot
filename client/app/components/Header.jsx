@@ -1,5 +1,7 @@
 "use client";
 
+import { Mail } from "lucide-react";
+
 const Header = ({ isAdmin, onConnect }) => {
   return (
     <div className="flex items-center justify-between">
@@ -12,29 +14,7 @@ const Header = ({ isAdmin, onConnect }) => {
           type="button"
           onClick={onConnect}
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-3.5 w-3.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path
-              d="M4 7l8 5 8-5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <rect
-              x="4"
-              y="5"
-              width="16"
-              height="14"
-              rx="2"
-              ry="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Mail className="h-3.5 w-3.5" />
           Connect Mail
         </button>
       ) : null}

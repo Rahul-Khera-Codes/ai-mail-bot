@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { Send } from "lucide-react";
 import Header from "./Header";
 import Chats from "./Chats";
 import {
   useCreateConversationMutation,
   useSendConversationMessageMutation,
+  conversationApi,
 } from "../redux/api/conversationApi";
 
 const EMPTY_MESSAGES = [];
@@ -24,6 +26,7 @@ const ChatPanel = ({
   onConversationCreated,
 }) => {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
@@ -128,6 +131,15 @@ const ChatPanel = ({
             )
           );
         },
+        onTitle: (title) => {
+          // Invalidate conversations cache to update sidebar with new title
+          dispatch(
+            conversationApi.util.invalidateTags([
+              { type: "Conversation", id: currentConversationId },
+              "Conversation",
+            ])
+          );
+        },
         onDone: () => {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -205,7 +217,7 @@ const ChatPanel = ({
                   </div>
                   <div className="text-4xl font-medium bg-gradient-to-t from-[#a27bff] to-white text-transparent bg-clip-text">
                     {user?.name || user?.displayName
-                      ? `Hello, ${user?.name || user?.displayName}`
+                      ? `Hello, ${(user?.name || user?.displayName).split(" ")[0]}`
                       : ""}
                   </div>
                   <div className="mt-2 text-4xl font-medium text-slate-100">
