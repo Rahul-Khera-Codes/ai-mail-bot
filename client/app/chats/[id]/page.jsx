@@ -50,6 +50,9 @@ export default function ChatPage() {
     return "Failed to load messages";
   }, [chatsError]);
 
+  const conversationMissing =
+    chatsError?.status === 403 || chatsError?.status === 404;
+
   useEffect(() => {
     if (sessionError?.status === 401) {
       router.push("/login");
@@ -65,23 +68,6 @@ export default function ChatPage() {
   if (!conversationId) {
     router.replace("/");
     return null;
-  }
-
-  if (errorMessage) {
-    return (
-      <div className="min-h-screen bg-black text-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-slate-300">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="mt-4 text-indigo-400 hover:underline"
-          >
-            Back to home
-          </button>
-        </div>
-      </div>
-    );
   }
 
   const isAdmin = user?.role === "admin";
@@ -107,15 +93,35 @@ export default function ChatPage() {
           mobileOpen={mobileSidebarOpen}
           onClose={() => setMobileSidebarOpen(false)}
         />
-        <ChatPanel
-          isAdmin={isAdmin}
-          onConnect={connectGmail}
-          conversationId={conversationId}
-          initialMessages={messages}
-          loadingMessages={loadingMessages}
-          onConversationCreated={handleConversationCreated}
-          onOpenSidebar={() => setMobileSidebarOpen(true)}
-        />
+        {conversationMissing ? (
+          <main className="relative flex h-screen flex-col items-center justify-center px-6 text-center">
+            <div className="max-w-md rounded-2xl border border-[#2a2a3a] bg-[#10101a]/70 px-6 py-8 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+              <p className="text-2xl font-semibold text-white">
+                Conversation not found
+              </p>
+              <p className="mt-2 text-sm text-slate-300">
+                The link may be invalid or the conversation was deleted.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="mt-5 rounded-xl bg-[#a27bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(162,123,255,0.4)] transition hover:-translate-y-0.5 hover:bg-[#b090ff]"
+              >
+                Start a new chat
+              </button>
+            </div>
+          </main>
+        ) : (
+          <ChatPanel
+            isAdmin={isAdmin}
+            onConnect={connectGmail}
+            conversationId={conversationId}
+            initialMessages={messages}
+            loadingMessages={loadingMessages}
+            onConversationCreated={handleConversationCreated}
+            onOpenSidebar={() => setMobileSidebarOpen(true)}
+          />
+        )}
       </div>
     </div>
   );

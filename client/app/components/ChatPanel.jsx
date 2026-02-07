@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { Send } from "lucide-react";
 import Header from "./Header";
 import Chats from "./Chats";
+import LoadingSpinner from "./LoadingSpinner";
 import {
   useCreateConversationMutation,
   useSendConversationMessageMutation,
@@ -82,7 +83,7 @@ const ChatPanel = ({
       {
         id: assistantId,
         role: "assistant",
-        content: "Working on that...",
+        content: "...",
         citations: [],
         pending: true,
       },
@@ -124,7 +125,7 @@ const ChatPanel = ({
                 ? {
                     ...msg,
                     content:
-                      msg.content === "Working on that..."
+                      msg.content === "..."
                         ? content
                         : msg.content + content,
                   }
@@ -209,8 +210,8 @@ const ChatPanel = ({
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden">
           <section className="flex min-h-0 flex-1 flex-col">
             {conversationId && loadingMessages ? (
-              <div className="flex flex-1 items-center justify-center text-slate-400 text-sm">
-                Loading conversation...
+              <div className="flex flex-1 items-center justify-center">
+                <LoadingSpinner size={40} />
               </div>
             ) : emptyState ? (
               <div className="flex h-full items-center justify-center">
