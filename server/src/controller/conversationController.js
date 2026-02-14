@@ -10,6 +10,34 @@ import { createChatCompletionOnce } from "../utils/openaiClient.js";
 const HISTORY_LIMIT = 15;
 const MEMORY_SUMMARY_MESSAGES = 8;
 
+/** True if the last prior message is from assistant and asked which email to reply to or was a reply draft */
+function lastAssistantWasReplyChoiceOrDraft(priorMessages) {
+    if (!Array.isArray(priorMessages) || priorMessages.length === 0) return false;
+    const last = priorMessages[priorMessages.length - 1];
+    if (last?.role !== "system") return false;
+    const text = (last.message || "").toLowerCase();
+    const askedWhichEmail =
+        text.includes("which email") ||
+        text.includes("specify which email") ||
+        /which email would you like to reply/i.test(text);
+    const looksLikeDraft = (last.message || "").includes("**Subject:**") || (last.message || "").length > 200;
+    return askedWhichEmail || looksLikeDraft;
+}
+
+/** True if the message looks like a greeting or short reply that does not pick an email */
+function isGreetingOrNonSpecifier(question) {
+    const q = (question || "").trim();
+    if (q.length === 0) return false;
+    const lower = q.toLowerCase();
+    const shortGreetings = [
+        "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "yes", "no",
+        "sup", "hola", "hi there", "hello there", "hey there",
+    ];
+    if (shortGreetings.includes(lower)) return true;
+    if (q.length <= 20 && !/\d/.test(q) && !lower.includes("subject") && !lower.includes("number")) return true;
+    return false;
+}
+
 /** Ensure conversation exists and belongs to req.user */
 async function getConversationForUser(conversationId, userId) {
     const conversation = await prisma.conversation.findFirst({
@@ -387,11 +415,14 @@ export const sendMessage = async (req, res) => {
             });
         }
 
+        const forceRespondToMessage =
+            lastAssistantWasReplyChoiceOrDraft(priorMessages) && isGreetingOrNonSpecifier(question);
         let fullContent = "";
         const stream = generateRagAnswerWithHistory(question, matches, {
             priorMessages,
             memory,
             userEmail: mailboxEmail,
+            forceRespondToMessage,
         });
         for await (const chunk of stream) {
             fullContent += chunk;
