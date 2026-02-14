@@ -43,6 +43,15 @@ const Chats = ({ messages }) => {
           }`}
         >
           <div className="min-w-0 w-fit max-w-[88%] sm:max-w-[70%]">
+            {message.role === "assistant" &&
+            message.pending &&
+            message.content === "..." ? (
+              <div className="flex items-center gap-1 py-2" aria-label="Loading">
+                <span className="loading-dot loading-dot-1" />
+                <span className="loading-dot loading-dot-2" />
+                <span className="loading-dot loading-dot-3" />
+              </div>
+            ) : (
             <div
               className={`rounded-xl px-3 py-2 overflow-hidden break-words whitespace-normal [overflow-wrap:anywhere] shadow-[0_10px_26px_rgba(0,0,0,0.35)] prose prose-invert max-w-none [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:bg-[#1a1a1a] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:[-ms-overflow-style:none] [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden [&_pre_code]:whitespace-pre [&_code]:bg-[#1a1a1a] [&_code]:px-1 [&_code]:rounded [&_code]:break-all [&_a]:text-[#a27bff] [&_a]:underline [&_a]:break-all [&_table]:border-collapse [&_table]:table-auto [&_table]:w-full [&_th]:border [&_td]:border [&_th]:p-2 [&_td]:p-2 [&_p]:my-2 [&_hr]:border-[#2a2a3a] ${
                 message.role === "user"
@@ -105,6 +114,7 @@ const Chats = ({ messages }) => {
                 </ReactMarkdown>
               )}
             </div>
+            )}
             {/* {message.role === "assistant" &&
             Array.isArray(message.citations) &&
             message.citations.length ? (

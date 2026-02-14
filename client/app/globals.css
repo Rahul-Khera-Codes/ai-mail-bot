@@ -19,6 +19,25 @@ body {
   display: none;
 }
 
+@keyframes loading-dot-pulse {
+  0%, 100% { transform: scale(0.6); opacity: 0.6; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+.loading-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a27bff;
+  box-shadow: 0 0 8px rgba(162, 123, 255, 0.5);
+  animation: loading-dot-pulse 0.8s ease-in-out infinite;
+}
+
+.loading-dot-1 { animation-delay: 0s; }
+.loading-dot-2 { animation-delay: 0.15s; }
+.loading-dot-3 { animation-delay: 0.3s; }
+
 @layer utilities {
   .sidebar-scroll {
     scrollbar-width: thin;
