@@ -96,8 +96,7 @@ const Sidebar = ({
   }, [isMobileViewport]);
 
   const handleNewChat = () => {
-    // Just navigate to home page - conversation will be created on first message
-    router.push("/");
+    router.push("/chats");
     onNewChat?.();
   };
 
@@ -111,7 +110,7 @@ const Sidebar = ({
     try {
       await deleteConversation(pendingDeleteChat.id).unwrap();
       if (activeChatId === pendingDeleteChat.id) {
-        router.push("/");
+        router.push("/chats");
       }
     } finally {
       setPendingDeleteChat(null);

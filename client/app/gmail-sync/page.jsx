@@ -25,7 +25,7 @@ export default function GmailSyncPage() {
         setProgress(100);
         setStatus("done");
         toast.success(`Synced ${nextSyncedCount} emails`);
-        router.push("/");
+        router.push("/chats");
       } catch (err) {
         if (!isMounted) return;
         setStatus("error");
@@ -35,7 +35,7 @@ export default function GmailSyncPage() {
           err?.message ||
           "Failed to sync emails";
         toast.error(message);
-        router.push("/");
+        router.push("/chats");
       }
     };
 

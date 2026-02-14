@@ -3,44 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Copy, Check } from "lucide-react";
-
-const isEmailDraft = (content) => {
-  if (!content || typeof content !== "string") return false;
-  const c = content.trim();
-  const hasSubject = /\*\*Subject:\*\*|Subject:\s*/i.test(c);
-  const hasGreeting = /\b(Hi|Dear|Hello)\s+/i.test(c);
-  const hasSignOff = /\b(Best regards|Regards|Cheers|Sincerely|Thanks)\b/i.test(c);
-  return hasSubject && hasGreeting && hasSignOff;
-};
-
-const isDisambiguationList = (content) => {
-  if (!content || typeof content !== "string") return false;
-  const c = content.trim();
-  const hasWhichEmail = /which email would you like/i.test(c);
-  const hasNumberedItems = (c.match(/\d+[\)\.]\s/g) || []).length >= 2;
-  const hasSubject = /Subject:/i.test(c);
-  return hasWhichEmail && hasNumberedItems && hasSubject;
-};
-
-const isCompleteConversation = (content) => {
-  if (!content || typeof content !== "string") return false;
-  return /Email \d+:/i.test(content);
-};
-
-const stripEmailNumbering = (content) => {
-  return content.replace(/Email \d+:\s*/gi, "");
-};
-
-const markdownToPlainText = (content) => {
-  if (!content || typeof content !== "string") return "";
-  return content
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/#+\s*/g, "")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .trim();
-};
+import {
+  isEmailDraft,
+  isListContent,
+  formatListContent,
+  isCompleteConversation,
+  stripEmailNumbering,
+  markdownToPlainText,
+} from "../utils/chatContentUtils";
 
 const Chats = ({ messages }) => {
   const endRef = useRef(null);
@@ -121,12 +91,10 @@ const Chats = ({ messages }) => {
                     </ReactMarkdown>
                   </div>
                 </div>
-              ) : isDisambiguationList(message.content) ? (
-                <div className="[&_ol]:list-decimal [&_ol]:list-inside [&_ol]:space-y-2 [&_ol]:my-3 [&_li]:pl-1">
+              ) : isListContent(message.content) ? (
+                <div className="[&_ul]:list-disc [&_ul]:list-inside [&_ol]:list-decimal [&_ol]:list-inside [&_ul]:space-y-1 [&_ol]:space-y-1 [&_ul]:my-2 [&_ol]:my-2 [&_li]:pl-1">
                   <ReactMarkdown>
-                    {message.content
-                      .replace(/\s+(\d+)\)/g, "\n$1.")
-                      .replace(/^(\d+)\)/g, "$1.")}
+                    {formatListContent(message.content)}
                   </ReactMarkdown>
                 </div>
               ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { Send } from "lucide-react";
@@ -35,6 +35,7 @@ const ChatPanel = ({
   const [isLoading, setIsLoading] = useState(false);
   const [createConversation] = useCreateConversationMutation();
   const [sendConversationMessage] = useSendConversationMessageMutation();
+  const streamedContentRef = useRef("");
 
   const emptyState = useMemo(() => messages.length === 0, [messages.length]);
 
@@ -51,7 +52,19 @@ const ChatPanel = ({
 
   useEffect(() => {
     if (conversationId != null) {
-      setMessages(messagesToSync);
+      setMessages((prev) => {
+        if (
+          prev.length === messagesToSync.length &&
+          prev.every((p, i) => {
+            const m = messagesToSync[i];
+            const content = m?.content ?? m?.message ?? "";
+            return m && p.id === m.id && p.content === content;
+          })
+        ) {
+          return prev;
+        }
+        return messagesToSync;
+      });
     } else {
       setMessages([]);
       setInput("");
@@ -77,6 +90,7 @@ const ChatPanel = ({
     };
 
     const assistantId = Math.random().toString(16).slice(2, 10);
+    streamedContentRef.current = "";
     setMessages((prev) => [
       ...prev,
       userMessage,
@@ -119,6 +133,7 @@ const ChatPanel = ({
           );
         },
         onChunk: (content) => {
+          streamedContentRef.current += content;
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantId
@@ -167,7 +182,26 @@ const ChatPanel = ({
       );
 
       if (!conversationId && currentConversationId) {
-        router.push(`/chats/${currentConversationId}`);
+        const assistantContent =
+          streamedContentRef.current || "No answer available.";
+        const chatsArray = [
+          { id: userMessage.id, role: "user", message: trimmed },
+          { id: assistantId, role: "assistant", message: assistantContent },
+        ];
+        dispatch(
+          conversationApi.util.upsertQueryData(
+            "getConversationChats",
+            currentConversationId,
+            chatsArray
+          )
+        );
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            router.replace(`/chats/${currentConversationId}`, {
+              scroll: false,
+            });
+          });
+        });
       }
     } catch (err) {
       if (err?.status === 401) {
@@ -208,7 +242,7 @@ const ChatPanel = ({
 
       <div className="flex h-full flex-col gap-3 px-4 lg:px-8 pb-2 lg:pb-6 pt-0">
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden">
-          <section className="flex min-h-0 flex-1 flex-col">
+          <section className="flex min-h-0 flex-1 flex-col [contain:layout]">
             {conversationId && loadingMessages ? (
               <div className="flex flex-1 items-center justify-center">
                 <LoadingSpinner size={40} />
