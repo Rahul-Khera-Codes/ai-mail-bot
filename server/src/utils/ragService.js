@@ -6,11 +6,12 @@ const buildEmailContext = (metadata, index) => {
     const from = metadata?.from || "Unknown sender";
     const date = metadata?.date || "Unknown date";
     const snippet = metadata?.snippet || "";
+    const sentByYou = metadata?.direction === "outbound" ? " (sent by you)" : "";
 
     return [
         `Email ${index + 1}:`,
         `Subject: ${subject}`,
-        `From: ${from}`,
+        `From: ${from}${sentByYou}`,
         `Date: ${date}`,
         snippet ? `Snippet: ${snippet}` : "Snippet: (no snippet available)",
     ].join("\n");
@@ -30,6 +31,16 @@ const buildAttachmentContext = (metadata, index) => {
     ]
         .filter(Boolean)
         .join("\n");
+};
+
+const sortMatchesByDate = (matches) => {
+    const getTime = (m) => {
+        const d = m?.metadata?.date;
+        if (!d) return Infinity;
+        const t = new Date(d).getTime();
+        return Number.isNaN(t) ? Infinity : t;
+    };
+    return [...matches].sort((a, b) => getTime(a) - getTime(b));
 };
 
 export const retrieveRelevantEmails = async (
@@ -59,7 +70,8 @@ export const retrieveRelevantEmails = async (
         filter: resolvedFilter,
     });
 
-    return result.matches || [];
+    const matches = result.matches || [];
+    return sortMatchesByDate(matches);
 };
 
 export const buildContextFromMatches = (matches = []) => {
@@ -97,13 +109,26 @@ export const buildCitationsFromMatches = (matches = []) =>
 const CHAT_MAX_TOKENS =
     parseInt(process.env.OPENAI_CHAT_MAX_TOKENS, 10) || 500;
 
-const getBaseSystemPrompt = () =>
-    "You are a helpful assistant that answers questions using the provided context, which may include emails and documents (attachments such as PDFs, Word files, or text files). " +
-    "Use both email content and document excerpts to answer. If the context does not contain the answer, say you do not have enough information.";
+const getBaseSystemPrompt = (userEmail = "") => {
+    let prompt =
+        "You are a helpful assistant that answers questions using the provided context, which may include emails and documents (attachments such as PDFs, Word files, or text files). " +
+        "Use both email content and document excerpts to answer. If the context does not contain the answer, say you do not have enough information. " +
+        "When the user asks to generate or draft a reply email: if the context contains multiple distinct emails (different subjects or threads) that could match (e.g. same sender), do NOT generate a reply yet. Instead, list the matching emails with identifiers (number, subject, date) and ask: \"Which email would you like to reply to?\" Only generate a single reply draft after the user specifies which one (by number, subject, or topic). Never assume or pick one when multiple match; never generate replies for more than one email unless the user explicitly asks for multiple drafts. " +
+        "When generating reply or follow-up email drafts, act as a strict professional email assistant. TONE: Warm and collaborative, like a team lead checking in — not formal or policy-like. Professional but warm; calm; clear; natural. Avoid transactional phrases like 'Thank you for your update. We can proceed with...' or directive 'please ensure'. Instead use: 'I wanted to follow up on our discussion regarding...' or 'I wanted to check in regarding...'. EMAIL STRUCTURE (follow exactly): **Subject:** [contextual subject]. Hi [receiver], I hope you're doing well. [Context: I wanted to follow up on our discussion regarding… OR I wanted to check in regarding…]. [Main message: Frame as confirmation request with reasoning. Use 'Please confirm that you're set to…' and add 'This will help us ensure a smooth transition...' or similar. Address topic directly; short clear sentences.] Let me know if you need any clarification, resources, or support before we begin. [Forward-looking close: Looking forward to your confirmation.] Best regards, [sender]. RULES: Always include 'I hope you're doing well' as first line after greeting. Prefer 'I wanted to follow up on our discussion regarding' over 'Thank you for your update'. Frame requests as confirmations with reasoning, not directives. Keep support line as: 'Let me know if you need any clarification, resources, or support before we begin.' CRITICAL: Output ONLY the email. No preamble, no 'Based on the context...', no 'Here is your draft'. Start directly with **Subject:**.";
+    if (userEmail && typeof userEmail === "string" && userEmail.trim()) {
+        prompt +=
+            ` The user's email is ${userEmail.trim()}. When generating a reply or follow-up: if the most recent email in the context for that thread was sent by the user (From contains this email, or direction is outbound / marked "sent by you"), generate a FOLLOW-UP email (e.g. "Just checking in...", "Wanted to follow up on...") rather than a REPLY. A reply responds to someone else's message; a follow-up is for when the user sent last.`;
+    }
+    return prompt;
+};
 
-export async function* generateRagAnswer(question, matches = []) {
+export async function* generateRagAnswer(
+    question,
+    matches = [],
+    { userEmail } = {}
+) {
     const context = buildContextFromMatches(matches);
-    const systemPrompt = getBaseSystemPrompt();
+    const systemPrompt = getBaseSystemPrompt(userEmail);
     const userPrompt = [
         `Question: ${question}`,
         "",
@@ -125,9 +150,13 @@ export async function* generateRagAnswer(question, matches = []) {
     }
 }
 
-function buildMessagesWithHistory(question, matches, { priorMessages = [], memory = {} } = {}) {
+function buildMessagesWithHistory(
+    question,
+    matches,
+    { priorMessages = [], memory = {}, userEmail } = {}
+) {
     const context = buildContextFromMatches(matches);
-    let systemContent = getBaseSystemPrompt();
+    let systemContent = getBaseSystemPrompt(userEmail);
     const memorySummary =
         memory && typeof memory.summary === "string" && memory.summary.trim()
             ? `\n\nConversation memory (use for context only): ${memory.summary.trim()}`
@@ -157,11 +186,12 @@ function buildMessagesWithHistory(question, matches, { priorMessages = [], memor
 export async function* generateRagAnswerWithHistory(
     question,
     matches = [],
-    { priorMessages = [], memory = {} } = {}
+    { priorMessages = [], memory = {}, userEmail } = {}
 ) {
     const messages = buildMessagesWithHistory(question, matches, {
         priorMessages,
         memory,
+        userEmail,
     });
     const stream = createChatCompletion({
         messages,

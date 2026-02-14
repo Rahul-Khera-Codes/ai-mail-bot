@@ -342,6 +342,13 @@ export const sendMessage = async (req, res) => {
             ? mem0Session.memory
             : {};
 
+        const connection = await prisma.gmailConnection.findFirst({
+            where: { adminUserId: userId },
+            orderBy: { updatedAt: "desc" },
+        });
+        const mailboxEmail =
+            connection?.googleAccountEmail || req.user?.email || "";
+
         const topK = req.body?.topK;
         const matches = await retrieveRelevantEmails(question, { topK });
         const citations = buildCitationsFromMatches(matches);
@@ -384,6 +391,7 @@ export const sendMessage = async (req, res) => {
         const stream = generateRagAnswerWithHistory(question, matches, {
             priorMessages,
             memory,
+            userEmail: mailboxEmail,
         });
         for await (const chunk of stream) {
             fullContent += chunk;

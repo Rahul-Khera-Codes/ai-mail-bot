@@ -163,6 +163,16 @@ export const syncMessages = async (req, res) => {
             emails.map((email) => email.embeddingText)
         );
 
+        const connection = await prisma.gmailConnection.findFirst({
+            where: { adminUserId: req.user?.id },
+            orderBy: { updatedAt: "desc" },
+        });
+        const mailboxEmail = (
+            connection?.googleAccountEmail ||
+            req.user?.email ||
+            ""
+        ).toLowerCase();
+
         const namespace = process.env.PINECONE_NAMESPACE || "emails";
         const index = getPineconeIndex();
         const target = index.namespace(namespace);
@@ -178,7 +188,11 @@ export const syncMessages = async (req, res) => {
                 subject: email.subject,
                 from: email.from,
                 snippet: email.snippet,
-                direction: "inbound",
+                direction:
+                    mailboxEmail &&
+                    (email.from || "").toLowerCase().includes(mailboxEmail)
+                        ? "outbound"
+                        : "inbound",
                 hasAction: email.flags.hasAction,
                 hasDecision: email.flags.hasDecision,
                 hasConfirmation: email.flags.hasConfirmation,
@@ -290,6 +304,13 @@ export const streamAiResponse = async (req, res) => {
     }
 
     try {
+        const connection = await prisma.gmailConnection.findFirst({
+            where: { adminUserId: req.user?.id },
+            orderBy: { updatedAt: "desc" },
+        });
+        const mailboxEmail =
+            connection?.googleAccountEmail || req.user?.email || "";
+
         const topK = req.body?.topK;
         const matches = await retrieveRelevantEmails(question, { topK });
         const citations = buildCitationsFromMatches(matches);
@@ -310,7 +331,9 @@ export const streamAiResponse = async (req, res) => {
             }) + "\n"
         );
 
-        const stream = generateRagAnswer(question, matches);
+        const stream = generateRagAnswer(question, matches, {
+            userEmail: mailboxEmail,
+        });
         for await (const chunk of stream) {
             res.write(JSON.stringify({ type: "chunk", content: chunk }) + "\n");
             if (typeof res.flush === "function") {
