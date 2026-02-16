@@ -5,6 +5,7 @@
 
 import {
     buildEmbeddingText,
+    chunkEmailBody,
     cleanBody,
     detectIntentFlags,
     extractEmailFields,
@@ -24,61 +25,82 @@ export const processEmailsToPinecone = async (
     mailboxEmail = "",
     namespace = null
 ) => {
-    // Process emails: extract → clean → build embedding text
-    const emails = emailData.map((fields) => {
+    // Process emails: extract → clean → chunk long bodies → build embedding texts
+    const emailChunks = [];
+    for (const fields of emailData) {
         const cleanedBody = cleanBody(fields.body);
         const threadId = fields.inReplyTo || fields.messageId;
         const flags = detectIntentFlags(cleanedBody);
-        const snippet = cleanedBody.slice(0, 1000);
-        const embeddingText = buildEmbeddingText({
-            subject: fields.subject,
-            from: fields.from,
-            body: cleanedBody,
-        });
+        const bodyChunks = chunkEmailBody(cleanedBody);
 
-        return {
-            ...fields,
-            body: cleanedBody,
-            threadId,
-            embeddingText,
-            flags,
-            snippet,
-        };
-    });
+        for (let i = 0; i < bodyChunks.length; i++) {
+            const chunk = bodyChunks[i];
+            const embeddingText = buildEmbeddingText({
+                subject: fields.subject,
+                from: fields.from,
+                body: chunk.text,
+            });
+            const snippet =
+                bodyChunks.length === 1
+                    ? cleanedBody.slice(0, 1000)
+                    : chunk.text.slice(0, 500);
+
+            emailChunks.push({
+                ...fields,
+                body: cleanedBody,
+                threadId,
+                embeddingText,
+                flags,
+                snippet,
+                chunkIndex: i,
+                totalChunks: bodyChunks.length,
+            });
+        }
+    }
 
     // Generate embeddings
     const embeddings = await createEmbeddings(
-        emails.map((email) => email.embeddingText)
+        emailChunks.map((c) => c.embeddingText)
     );
 
     // Get Pinecone index
-    const targetNamespace = namespace || process.env.PINECONE_NAMESPACE || "emails";
+    const targetNamespace =
+        namespace || process.env.PINECONE_NAMESPACE || "emails";
     const index = getPineconeIndex();
     const target = index.namespace(targetNamespace);
 
     // Build vectors
     const mailboxEmailLower = mailboxEmail.toLowerCase();
-    const vectors = emails.map((email, idx) => ({
-        id: email.messageId,
-        values: embeddings[idx],
-        metadata: {
-            docType: "email",
-            threadId: email.threadId,
-            source: "gmail",
-            date: email.date,
-            subject: email.subject,
-            from: email.from,
-            snippet: email.snippet,
-            direction:
-                mailboxEmailLower &&
-                (email.from || "").toLowerCase().includes(mailboxEmailLower)
-                    ? "outbound"
-                    : "inbound",
-            hasAction: email.flags.hasAction,
-            hasDecision: email.flags.hasDecision,
-            hasConfirmation: email.flags.hasConfirmation,
-        },
-    }));
+    const vectors = emailChunks.map((chunk, idx) => {
+        const vectorId =
+            chunk.totalChunks > 1
+                ? `${chunk.messageId}_chunk_${chunk.chunkIndex}`
+                : chunk.messageId;
+        return {
+            id: vectorId,
+            values: embeddings[idx],
+            metadata: {
+                docType: "email",
+                messageId: chunk.messageId,
+                threadId: chunk.threadId,
+                source: "gmail",
+                date: chunk.date,
+                subject: chunk.subject,
+                from: chunk.from,
+                snippet: chunk.snippet,
+                chunkIndex: chunk.chunkIndex,
+                totalChunks: chunk.totalChunks,
+                direction:
+                    mailboxEmailLower &&
+                        (chunk.from || "").toLowerCase().includes(mailboxEmailLower)
+                        ? "outbound"
+                        : "inbound",
+                hasAction: chunk.flags.hasAction,
+                hasDecision: chunk.flags.hasDecision,
+                hasConfirmation: chunk.flags.hasConfirmation,
+            },
+        };
+    });
 
     // Upsert to Pinecone in batches
     const upsertBatchSize = 100;
