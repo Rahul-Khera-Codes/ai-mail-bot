@@ -12,6 +12,7 @@ import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoute.js";
 import gmailRoute from "./routes/gmailRoute.js";
 import conversationRoutes from "./routes/conversationRoute.js";
+import { startImapService } from "./services/imapService.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -41,6 +42,9 @@ app.use("/auth/gmail", gmailRoute);
 
 app.use("/conversations", conversationRoutes);
 
-app.listen(process.env.PORT, () =>
-    console.log(`🚀 Server running on ${process.env.PORT}`)
-);
+app.listen(process.env.PORT, () => {
+    console.log(`🚀 Server running on ${process.env.PORT}`);
+    
+    // Start IMAP service for auto-syncing new emails
+    startImapService();
+});
