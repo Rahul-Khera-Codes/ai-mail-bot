@@ -110,12 +110,15 @@ export const syncMessages = async (req, res) => {
         const { maxResults, fetchAll, maxTotal, labelIds, q, pageToken } =
             buildListOptions(req.query, { maxResults: 25, maxTotal: 200 });
 
+        // Default to INBOX + SENT if no labelIds specified (sync sent and received emails only)
+        const syncLabelIds = labelIds || ["INBOX", "SENT"];
+
         const { messages } = await listGmailMessages(gmail, {
             maxResults,
             fetchAll,
             maxTotal,
             q,
-            labelIds,
+            labelIds: syncLabelIds,
             pageToken,
         });
 
