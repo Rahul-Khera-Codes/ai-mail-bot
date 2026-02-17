@@ -86,7 +86,7 @@ export async function* createChatCompletion({
         model: resolvedModel,
         messages,
         temperature,
-        max_tokens: maxTokens,
+        // max_tokens: maxTokens,
         stream: true,
     });
 

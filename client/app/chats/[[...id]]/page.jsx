@@ -21,11 +21,12 @@ function mapChatToMessage(chat) {
   };
 }
 
-export default function ChatPage() {
+export default function ChatsPage() {
   const params = useParams();
   const router = useRouter();
-  const conversationId = params?.id;
+  const conversationId = params?.id?.[0] ?? null;
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [chatSeed, setChatSeed] = useState(0);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { data: sessionData, error: sessionError } = useGetSessionUserQuery();
   const user = sessionData?.user ?? null;
@@ -42,16 +43,9 @@ export default function ChatPage() {
     [chatsData]
   );
 
-  const errorMessage = useMemo(() => {
-    if (!chatsError) return null;
-    if (chatsError?.status === 403 || chatsError?.status === 404) {
-      return "Conversation not found";
-    }
-    return "Failed to load messages";
-  }, [chatsError]);
-
   const conversationMissing =
-    chatsError?.status === 403 || chatsError?.status === 404;
+    conversationId &&
+    (chatsError?.status === 403 || chatsError?.status === 404);
 
   useEffect(() => {
     if (sessionError?.status === 401) {
@@ -65,11 +59,6 @@ export default function ChatPage() {
     }
   }, [router, chatsError]);
 
-  if (!conversationId) {
-    router.replace("/");
-    return null;
-  }
-
   const isAdmin = user?.role === "admin";
   const connectGmail = () => {
     if (!user) {
@@ -80,14 +69,18 @@ export default function ChatPage() {
   };
 
   const handleConversationCreated = () => {
-    // Trigger sidebar refresh
     setSidebarRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleNewChat = () => {
+    setChatSeed((prev) => prev + 1);
   };
 
   return (
     <div className="min-h-screen bg-black text-slate-100">
       <div className="grid min-h-screen grid-cols-1 sm:grid-cols-[auto_1fr]">
         <Sidebar
+          onNewChat={handleNewChat}
           user={user}
           refreshTrigger={sidebarRefreshTrigger}
           mobileOpen={mobileSidebarOpen}
@@ -104,7 +97,7 @@ export default function ChatPage() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/chats")}
                 className="mt-5 rounded-xl bg-[#a27bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(162,123,255,0.4)] transition hover:-translate-y-0.5 hover:bg-[#b090ff]"
               >
                 Start a new chat
@@ -115,9 +108,10 @@ export default function ChatPage() {
           <ChatPanel
             isAdmin={isAdmin}
             onConnect={connectGmail}
+            resetKey={chatSeed}
             conversationId={conversationId}
             initialMessages={messages}
-            loadingMessages={loadingMessages}
+            loadingMessages={!!conversationId && loadingMessages}
             onConversationCreated={handleConversationCreated}
             onOpenSidebar={() => setMobileSidebarOpen(true)}
           />

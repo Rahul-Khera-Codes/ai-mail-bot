@@ -1,4 +1,7 @@
-import { RAG_ATTACHMENT_MIMES } from "../config/contant.js";
+import {
+    EMAIL_EMBEDDING_MAX_CHARS,
+    RAG_ATTACHMENT_MIMES,
+} from "../config/contant.js";
 
 const decodeBase64Url = (data) => {
     if (!data) return "";
@@ -90,6 +93,60 @@ export const detectIntentFlags = (body) => {
         hasDecision: /we decided|final decision|approved/i.test(body),
         hasConfirmation: /confirmed|successfully|completed/i.test(body),
     };
+};
+
+/**
+ * Split long email body into chunks under maxChars to stay under embedding token limit.
+ * Splits at paragraph, then sentence, then word boundaries.
+ * @param {string} text - Email body text
+ * @param {number} maxChars - Max characters per chunk (default: EMAIL_EMBEDDING_MAX_CHARS)
+ * @returns {Array<{text: string, index: number}>}
+ */
+export const chunkEmailBody = (text, maxChars = EMAIL_EMBEDDING_MAX_CHARS) => {
+    if (!text || typeof text !== "string") return [];
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+    if (trimmed.length <= maxChars) return [{ text: trimmed, index: 0 }];
+
+    const chunks = [];
+    let index = 0;
+
+    const pushChunk = (str) => {
+        if (str.trim()) {
+            chunks.push({ text: str.trim(), index: index++ });
+        }
+    };
+
+    const splitAtBoundary = (str, limit) => {
+        if (str.length <= limit) return { head: str, tail: "" };
+        const slice = str.slice(0, limit);
+        const lastParagraph = slice.lastIndexOf("\n\n");
+        const lastSentence = slice.match(/[^.!?]*[.!?]\s*$/);
+        const lastSentenceIdx = lastSentence
+            ? slice.lastIndexOf(lastSentence[0])
+            : -1;
+        const lastSpace = slice.lastIndexOf(" ");
+
+        let splitIdx = limit;
+        if (lastParagraph > limit / 2) splitIdx = lastParagraph + 2;
+        else if (lastSentenceIdx > limit / 2) splitIdx = lastSentenceIdx + lastSentence[0].length;
+        else if (lastSpace > limit / 2) splitIdx = lastSpace + 1;
+
+        return {
+            head: str.slice(0, splitIdx).trim(),
+            tail: str.slice(splitIdx).trim(),
+        };
+    };
+
+    let remaining = trimmed;
+    while (remaining.length > maxChars) {
+        const { head, tail } = splitAtBoundary(remaining, maxChars);
+        pushChunk(head);
+        remaining = tail;
+    }
+    pushChunk(remaining);
+
+    return chunks;
 };
 
 export const buildEmbeddingText = ({ subject, from, body }) => {

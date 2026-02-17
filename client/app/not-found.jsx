@@ -28,7 +28,7 @@ const NotFound = () => {
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/"
+              href="/chats"
               className="rounded-xl bg-[#a27bff] px-5 py-3 text-sm font-semibold text-white shadow-[0_15px_30px_rgba(162,123,255,0.35)] transition hover:-translate-y-0.5 hover:bg-[#b090ff]"
             >
               Back to Home

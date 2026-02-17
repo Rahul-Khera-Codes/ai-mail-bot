@@ -1,10 +1,8 @@
 import {
-    buildEmbeddingText,
-    cleanBody,
-    detectIntentFlags,
     extractEmailFields,
     getRagRelevantAttachments,
 } from "../utils/emailProcessing.js";
+import { processEmailsToPinecone } from "../utils/emailSyncProcessor.js";
 import { parseAndChunkDocument } from "../utils/documentProcessor.js";
 import { createEmbeddings } from "../utils/openaiClient.js";
 import { getPineconeIndex } from "../utils/pineconeClient.js";
@@ -112,12 +110,15 @@ export const syncMessages = async (req, res) => {
         const { maxResults, fetchAll, maxTotal, labelIds, q, pageToken } =
             buildListOptions(req.query, { maxResults: 25, maxTotal: 200 });
 
+        // Default to INBOX + SENT if no labelIds specified (sync sent and received emails only)
+        const syncLabelIds = labelIds || ["INBOX", "SENT"];
+
         const { messages } = await listGmailMessages(gmail, {
             maxResults,
             fetchAll,
             maxTotal,
             q,
-            labelIds,
+            labelIds: syncLabelIds,
             pageToken,
         });
 
@@ -137,70 +138,35 @@ export const syncMessages = async (req, res) => {
             details.push(...batchDetails);
         }
 
-        const emails = details.map((detail) => {
-            const fields = extractEmailFields(detail.data);
-            const cleanedBody = cleanBody(fields.body);
-            const threadId = fields.inReplyTo || fields.messageId;
-            const flags = detectIntentFlags(cleanedBody);
-            const snippet = cleanedBody.slice(0, 1000);
-            const embeddingText = buildEmbeddingText({
-                subject: fields.subject,
-                from: fields.from,
-                body: cleanedBody,
-            });
-
-            return {
-                ...fields,
-                body: cleanedBody,
-                threadId,
-                embeddingText,
-                flags,
-                snippet,
-            };
+        const connection = await prisma.gmailConnection.findFirst({
+            where: { adminUserId: req.user?.id },
+            orderBy: { updatedAt: "desc" },
         });
-
-        const embeddings = await createEmbeddings(
-            emails.map((email) => email.embeddingText)
-        );
+        const mailboxEmail = (
+            connection?.googleAccountEmail ||
+            req.user?.email ||
+            ""
+        ).toLowerCase();
 
         const namespace = process.env.PINECONE_NAMESPACE || "emails";
+        const emailData = details.map((d) => extractEmailFields(d.data));
+
+        const { syncedCount, namespace: resolvedNamespace } =
+            await processEmailsToPinecone(emailData, mailboxEmail, namespace);
+
         const index = getPineconeIndex();
-        const target = index.namespace(namespace);
-
-        const vectors = emails.map((email, idx) => ({
-            id: email.messageId,
-            values: embeddings[idx],
-            metadata: {
-                docType: "email",
-                threadId: email.threadId,
-                source: "gmail",
-                date: email.date,
-                subject: email.subject,
-                from: email.from,
-                snippet: email.snippet,
-                direction: "inbound",
-                hasAction: email.flags.hasAction,
-                hasDecision: email.flags.hasDecision,
-                hasConfirmation: email.flags.hasConfirmation,
-            },
-        }));
-
-        const upsertBatchSize = 100;
-        for (let i = 0; i < vectors.length; i += upsertBatchSize) {
-            const batch = vectors.slice(i, i + upsertBatchSize);
-            await target.upsert(batch);
-        }
+        const target = index.namespace(resolvedNamespace);
 
         let attachmentChunksSynced = 0;
 
         for (let d = 0; d < details.length; d++) {
             const detail = details[d];
-            const emailMeta = emails[d];
+            const emailMeta = extractEmailFields(detail.data);
             const msgId = detail.data.id;
             const subject = emailMeta?.subject ?? "";
             const from = emailMeta?.from ?? "";
             const date = emailMeta?.date ?? "";
-            const threadId = emailMeta?.threadId ?? msgId;
+            const threadId = emailMeta?.inReplyTo || emailMeta?.messageId || msgId;
 
             const attachments = getRagRelevantAttachments(detail.data);
             for (const att of attachments) {
@@ -266,9 +232,9 @@ export const syncMessages = async (req, res) => {
         });
 
         return res.json({
-            syncedCount: vectors.length,
+            syncedCount,
             attachmentChunksSynced,
-            namespace,
+            namespace: resolvedNamespace,
         });
     } catch (error) {
         await prisma.gmailConnection.updateMany({
@@ -290,6 +256,13 @@ export const streamAiResponse = async (req, res) => {
     }
 
     try {
+        const connection = await prisma.gmailConnection.findFirst({
+            where: { adminUserId: req.user?.id },
+            orderBy: { updatedAt: "desc" },
+        });
+        const mailboxEmail =
+            connection?.googleAccountEmail || req.user?.email || "";
+
         const topK = req.body?.topK;
         const matches = await retrieveRelevantEmails(question, { topK });
         const citations = buildCitationsFromMatches(matches);
@@ -310,7 +283,9 @@ export const streamAiResponse = async (req, res) => {
             }) + "\n"
         );
 
-        const stream = generateRagAnswer(question, matches);
+        const stream = generateRagAnswer(question, matches, {
+            userEmail: mailboxEmail,
+        });
         for await (const chunk of stream) {
             res.write(JSON.stringify({ type: "chunk", content: chunk }) + "\n");
             if (typeof res.flush === "function") {
